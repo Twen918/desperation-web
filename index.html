@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>DESPERATION — Act 1</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="./css/style.css"/>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="vignette"></div>
+<canvas id="grain" width="160" height="90"></canvas>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="objective"></div>
+  <div id="inv"></div>
+  <div id="hearInd">&#9650; IT HEARD SOMETHING</div>
+  <div id="chaseInd">RUN</div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="noiseWrap"><div id="noiseLabel">NOISE</div><div id="noiseBarBg"><div id="noiseBar"></div></div></div>
+</div>
+
+<div id="lockerView"></div>
+<div id="redFlash"></div>
+<div id="fade"></div>
+
+<div id="noteOverlay"><div id="notePaper"></div><div class="noteHint">[ E ] put it down</div></div>
+<div id="mapOverlay"><canvas id="mapCanvas" width="500" height="700"></canvas><div class="mapHint">[ M ] close map</div></div>
+
+<div id="titleScreen" class="screen">
+  <h1>DESPERATION</h1>
+  <div class="sub">A BROWSER DEMAKE &mdash; ACT 1</div>
+  <div class="hintline">WASD move &nbsp;&middot;&nbsp; SHIFT sprint &nbsp;&middot;&nbsp; SHIFT+C slide &nbsp;&middot;&nbsp; C crouch &nbsp;&middot;&nbsp; SPACE jump</div>
+  <div class="hintline">E interact &nbsp;&middot;&nbsp; F flashlight &nbsp;&middot;&nbsp; M map &nbsp;&middot;&nbsp; ESC pause</div>
+  <div class="hintline dim" style="margin-top:18px">Noise attracts it. Headphones strongly recommended.</div>
+  <div class="start" id="btnStart">CLICK TO WAKE UP</div>
+  <div class="hintline dim" style="margin-top:40px">Original Unreal Engine game by Yiwen Tan, Longyu Lin, Torin Sheahen, Ruoer Xu</div>
+  <div class="hintline dim">Full version: <a href="https://chieftain22.itch.io/desperation" target="_blank">chieftain22.itch.io/desperation</a></div>
+</div>
+
+<div id="pauseScreen" class="screen">
+  <h1 style="font-size:30px">PAUSED</h1>
+  <div class="hintline dim" style="margin:8px 0 30px">It is still out there.</div>
+  <div class="start" id="btnResume">RESUME</div>
+  <div class="hintline dim" style="margin-top:26px">WASD move &middot; SHIFT sprint &middot; SHIFT+C slide &middot; C crouch &middot; E interact &middot; F flashlight &middot; M map</div>
+</div>
+
+<div id="endScreen" class="screen">
+  <h1>ACT 1 CLEAR</h1>
+  <div class="sub" style="margin-bottom:0">POWER RESTORED &mdash; BUT YOU ARE NOT OUT YET</div>
+  <div class="quote">&ldquo;If anyone hears this&hellip; don&rsquo;t come here. Don&rsquo;t try to save me. Just burn it. Burn everything.&rdquo;</div>
+  <div class="sig">&mdash; DR. ALDEN</div>
+  <div class="hintline">The story continues in the full game:</div>
+  <div class="hintline"><a href="https://chieftain22.itch.io/desperation" target="_blank">chieftain22.itch.io/desperation</a></div>
+  <div class="start" id="btnRestart" style="margin-top:34px">RESTART</div>
+</div>
+
+<div id="mobileWarn">DESPERATION needs a keyboard and a mouse.<br/><br/>Please play on a desktop browser.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

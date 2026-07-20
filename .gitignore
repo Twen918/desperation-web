@@ -1,0 +1,17 @@
+# Build artifact — regenerate with `python tools/build.py`
+desperation-web.zip
+
+# Local tooling / editor state
+.claude/
+.vscode/
+.idea/
+
+# OS clutter
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc

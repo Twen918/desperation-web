@@ -1,0 +1,9 @@
+# Normalize line endings across the team — store text as LF in the repo,
+# check out with each OS's native endings. Prevents whole-file diffs when
+# someone commits from a different platform.
+* text=auto eol=lf
+
+# Binary assets — never touch their bytes.
+*.jpg binary
+*.png binary
+*.zip binary

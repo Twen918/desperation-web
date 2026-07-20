@@ -1,0 +1,76 @@
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#04060a;
+    font-family:Consolas,'Courier New',monospace;color:#c8d2d4;user-select:none;}
+  #game{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair;}
+  /* ---- post-look layers ---- */
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 46%, rgba(0,0,0,.38) 74%, rgba(0,0,0,.86) 100%);
+    box-shadow:inset 0 0 180px rgba(0,0,0,.75);}
+  #grain{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6;
+    opacity:.075;mix-blend-mode:overlay;image-rendering:pixelated;}
+  /* ---- HUD ---- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;}
+  #crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;
+    background:rgba(200,210,212,.55);border-radius:50%;}
+  #objective{position:absolute;top:22px;left:26px;max-width:420px;font-size:13px;letter-spacing:.08em;
+    color:#aab8ba;text-shadow:0 1px 3px #000;line-height:1.5;}
+  #objective b{color:#e0e8e8;font-weight:normal;}
+  #objective .tag{color:#7f8f92;font-size:11px;letter-spacing:.28em;}
+  #inv{position:absolute;top:22px;right:26px;text-align:right;font-size:11px;letter-spacing:.18em;
+    color:#93a3a6;text-shadow:0 1px 3px #000;line-height:1.9;}
+  #inv .buff{color:#e08a8a;}
+  #hearInd{position:absolute;top:16%;left:50%;transform:translateX(-50%);font-size:12px;letter-spacing:.34em;
+    color:#e5b83b;text-shadow:0 0 12px rgba(229,184,59,.6),0 1px 3px #000;opacity:0;transition:opacity .3s;}
+  #chaseInd{position:absolute;top:16%;left:50%;transform:translateX(-50%);font-size:13px;letter-spacing:.4em;
+    color:#e5383b;text-shadow:0 0 14px rgba(229,56,59,.75),0 1px 3px #000;opacity:0;transition:opacity .2s;}
+  #prompt{position:absolute;left:50%;bottom:27%;transform:translateX(-50%);font-size:14px;letter-spacing:.14em;
+    color:#dfe8e8;text-shadow:0 1px 4px #000;white-space:nowrap;}
+  #prompt .k{border:1px solid #8fa0a3;padding:1px 7px;margin-right:8px;border-radius:2px;background:rgba(0,0,0,.45);}
+  #toast{position:absolute;left:50%;bottom:19%;transform:translateX(-50%);font-size:13px;letter-spacing:.1em;
+    color:#b9c6c8;text-shadow:0 1px 4px #000;opacity:0;transition:opacity .5s;text-align:center;white-space:pre;}
+  #noiseWrap{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);width:230px;text-align:center;}
+  #noiseLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;margin-bottom:5px;text-shadow:0 1px 3px #000;}
+  #noiseBarBg{height:5px;background:rgba(10,14,16,.8);border:1px solid rgba(140,155,158,.35);border-radius:2px;overflow:hidden;}
+  #noiseBar{height:100%;width:0%;background:#5f9f6f;transition:background .2s;}
+  /* ---- locker view ---- */
+  #lockerView{position:fixed;inset:0;z-index:8;pointer-events:none;display:none;
+    background:linear-gradient(90deg,#000 0%,#000 41.5%,rgba(0,0,0,.06) 43%,rgba(0,0,0,.75) 46.5%,#000 48%,
+      #000 52%,rgba(0,0,0,.75) 53.5%,rgba(0,0,0,.06) 57%,#000 58.5%,#000 100%);}
+  #lockerView::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 120px #000;}
+  /* ---- flashes / fades ---- */
+  #redFlash{position:fixed;inset:0;background:radial-gradient(ellipse,rgba(160,10,14,.55),rgba(90,0,3,.92));
+    z-index:20;opacity:0;pointer-events:none;}
+  #fade{position:fixed;inset:0;background:#000;z-index:25;opacity:1;pointer-events:none;transition:opacity .8s;}
+  /* ---- note overlay ---- */
+  #noteOverlay{position:fixed;inset:0;z-index:30;display:none;background:rgba(2,3,5,.72);}
+  #notePaper{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-.6deg);width:520px;max-width:86vw;
+    max-height:74vh;overflow-y:auto;background:linear-gradient(175deg,#d6cda6,#c4b98e 70%,#b0a47a);color:#2c2417;
+    padding:38px 42px;font-size:13.5px;line-height:1.75;letter-spacing:.02em;white-space:pre-wrap;
+    box-shadow:0 22px 70px rgba(0,0,0,.85), inset 0 0 60px rgba(120,100,50,.25);}
+  #noteOverlay .noteHint{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);
+    font-size:12px;letter-spacing:.2em;color:#9aa8aa;}
+  /* ---- map overlay ---- */
+  #mapOverlay{position:fixed;inset:0;z-index:30;display:none;background:rgba(2,4,6,.55);}
+  #mapCanvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:rgba(6,10,13,.94);border:1px solid rgba(120,140,145,.4);box-shadow:0 20px 80px rgba(0,0,0,.9);}
+  #mapOverlay .mapHint{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
+    font-size:12px;letter-spacing:.2em;color:#9aa8aa;}
+  /* ---- screens ---- */
+  .screen{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;background:#04060a;text-align:center;}
+  .screen h1{font-size:56px;letter-spacing:.42em;margin:0 0 6px .42em;font-weight:normal;color:#d8e2e2;
+    text-shadow:0 0 26px rgba(150,20,24,.55),0 2px 6px #000;animation:flick 4.2s infinite;}
+  @keyframes flick{0%,100%{opacity:1}92%{opacity:1}93%{opacity:.55}94%{opacity:.95}96%{opacity:.5}97%{opacity:1}}
+  .screen .sub{font-size:12px;letter-spacing:.3em;color:#8b393c;margin-bottom:44px;}
+  .screen .hintline{font-size:13px;letter-spacing:.16em;color:#aab8ba;margin:5px 0;}
+  .screen .dim{color:#66757a;font-size:11px;}
+  .screen .start{margin-top:46px;font-size:15px;letter-spacing:.3em;color:#e0e8e8;
+    padding:12px 34px;border:1px solid rgba(160,175,178,.45);cursor:pointer;background:rgba(12,18,22,.6);}
+  .screen .start:hover{background:rgba(120,20,24,.25);border-color:#a4464b;}
+  .screen a{color:#c96f73;text-decoration:none;border-bottom:1px dotted #c96f73;}
+  #pauseScreen,#endScreen{display:none;background:rgba(3,5,8,.88);}
+  #endScreen h1{font-size:40px;}
+  #endScreen .quote{max-width:560px;font-size:13.5px;line-height:2;color:#b9c4c6;font-style:italic;margin:26px 0 8px;}
+  #endScreen .sig{color:#8b989b;font-size:12px;letter-spacing:.2em;margin-bottom:36px;}
+  #mobileWarn{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    background:#04060a;font-size:15px;letter-spacing:.12em;color:#c8d2d4;text-align:center;padding:0 30px;}
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#3a4a4e;}
