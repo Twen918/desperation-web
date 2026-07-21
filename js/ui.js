@@ -55,6 +55,59 @@ function updateHUD(dt){
     $('hearInd').style.opacity=(refs.monster.state==='investigate'||refs.monster.state==='search')?1:0;
     $('chaseInd').style.opacity=refs.monster.state==='chase'?1:0;
   }
+  // condition pips (two lives)
+  const hp=G.hp,hurt=hp<=1&&hp>0;
+  if(hp!==lastHp){
+    let pips='';
+    for(let i=0;i<G.hpMax;i++)pips+='<span class="pip'+(i<hp?' on':'')+(hurt&&i<hp?' hurt':'')+'"></span>';
+    $('health').querySelector('.pips').innerHTML=pips;
+    lastHp=hp;
+  }
+  updateBlood(dt);
+}
+/* ---- blood damage vignette ---------------------------------------------
+   A procedural red splatter border. Its opacity is eased every frame toward
+   a target set by health: 0 at full HP, a breathing ~0.5 while wounded, and
+   a hard punch on each hit that decays back down. Mirrors the UE build's
+   bloodscreen damage effect. */
+let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0,lastHp=-1;
+function drawBlood(cv){
+  const x=cv.getContext('2d'),w=cv.width,h=cv.height,cx=w/2,cy=h/2;
+  x.clearRect(0,0,w,h);
+  // keep the centre clear so a wounded player can still see and navigate
+  const g=x.createRadialGradient(cx,cy,Math.min(w,h)*0.34,cx,cy,Math.max(w,h)*0.66);
+  g.addColorStop(0,'rgba(120,0,4,0)');
+  g.addColorStop(0.5,'rgba(116,2,8,0)');
+  g.addColorStop(0.82,'rgba(108,2,8,0.42)');
+  g.addColorStop(1,'rgba(70,0,4,0.95)');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  const edge=()=>{const a=Math.random()*Math.PI*2,r=0.66+Math.random()*0.42;   // hug the border
+    return[cx+Math.cos(a)*cx*r*1.05,cy+Math.sin(a)*cy*r*1.05];};
+  for(let i=0;i<150;i++){const[bx,by]=edge(),rad=6+Math.random()*44,a=0.13+Math.random()*0.45;
+    const gr=x.createRadialGradient(bx,by,1,bx,by,rad);
+    gr.addColorStop(0,'rgba('+(118+Math.random()*64|0)+',4,7,'+a+')');
+    gr.addColorStop(1,'rgba(88,0,5,0)');
+    x.fillStyle=gr;x.beginPath();x.arc(bx,by,rad,0,7);x.fill();}
+  for(let i=0;i<420;i++){const[bx,by]=edge();
+    x.fillStyle='rgba('+(100+Math.random()*90|0)+',0,7,'+(0.18+Math.random()*0.45)+')';
+    const s=1+Math.random()*3;x.fillRect(bx,by,s,s);}
+  for(let i=0;i<26;i++){const bx=Math.random()*w,by=Math.random()<0.5?0:h,dir=by===0?1:-1,len=22+Math.random()*80;
+    const gr=x.createLinearGradient(bx,by,bx,by+dir*len);
+    gr.addColorStop(0,'rgba(110,0,6,0.55)');gr.addColorStop(1,'rgba(110,0,6,0)');
+    x.fillStyle=gr;x.fillRect(bx-1.5,Math.min(by,by+dir*len),3,len);}
+}
+function damagePunch(){ bloodPunch=1; }
+function resetBlood(){ bloodPunch=0;bloodOp=0;if(bloodEl)bloodEl.style.opacity=0; }
+function updateBlood(dt){
+  if(!bloodEl)return;
+  bloodPhase+=dt;
+  bloodPunch=Math.max(0,bloodPunch-dt*1.25);
+  let base=0;
+  if(G.hp<=1&&G.hp>0&&(G.state==='play'||G.state==='caught'))
+    base=0.30+Math.sin(bloodPhase*2.3)*0.07;   // subtle "you're hurt" reminder
+  let target=Math.min(0.96,base+bloodPunch*0.62);  // strong flash on the hit itself
+  bloodOp+=(target-bloodOp)*Math.min(1,dt*8);
+  bloodEl.style.opacity=bloodOp.toFixed(3);
 }
 function flashRed(op,ms){
   const r=$('redFlash');
@@ -107,6 +160,10 @@ function drawMap(){
   x.fillText('N ↑',c.width-44,24);
 }
 
+/* draw the blood splatter once at load (element lives in the page markup) */
+bloodEl=$('bloodDmg');
+if(bloodEl)drawBlood(bloodEl);
+
 /* ================= FILM GRAIN ================= */
 const grainC=$('grain'),grainX=grainC.getContext('2d');
 let grainT=0;
@@ -122,4 +179,4 @@ function updateGrain(dt){
   grainX.putImageData(id,0,0);
 }
 
-export{openNote,closeNote,showToast,updateObjective,updateHUD,flashRed,fadeTo,drawMap,updateGrain};
+export{openNote,closeNote,showToast,updateObjective,updateHUD,flashRed,fadeTo,drawMap,updateGrain,damagePunch,resetBlood};
