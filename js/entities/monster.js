@@ -3,8 +3,75 @@ import{NODES}from'../config.js';
 import{G,refs}from'../state.js';
 import{AudioSys}from'../audio.js';
 import{scene}from'../gfx.js';
-import{collideCircle,hasLOS,findPath,nearestNode,power}from'../world.js';
+import{collideCircle,hasLOS,findPath,nearestNode,power,M}from'../world.js';
 import{Player}from'./player.js';
+
+/* ================= CREATURE RIG (shared by the monster & the silhouette) =====
+   No CapsuleGeometry on three r128, so a capsule is a tapered cylinder plus a
+   sphere at each end. Limbs are pivot groups: origin at the joint, body hanging
+   down to -len, so a parent's tip is the child's socket. */
+function capLimb(len,rTop,rBot,mat,seg=8){
+  const g=new THREE.Group();                       // pivot at top (y=0)
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(rTop,rBot,len,seg),mat);
+  body.position.y=-len/2;g.add(body);
+  const top=new THREE.Mesh(new THREE.SphereGeometry(rTop,seg,6),mat);g.add(top);
+  const bot=new THREE.Mesh(new THREE.SphereGeometry(rBot,seg,6),mat);bot.position.y=-len;g.add(bot);
+  return g;
+}
+function ellip(rx,ry,rz,mat,seg=10){               // squashed sphere = ribcage / skull
+  const m=new THREE.Mesh(new THREE.SphereGeometry(1,seg,seg),mat);
+  m.scale.set(rx,ry,rz);return m;
+}
+function buildCreatureRig(mat){
+  const flesh=mat.flesh,sinew=mat.sinew,eyeMat=mat.eye;
+  const r=new THREE.Group();
+  const P={spine:[]};
+  // gaunt, hunched frame: narrow ribcage, bony shoulders, exposed sternum
+  const torso=ellip(0.18,0.42,0.135,flesh);torso.position.y=1.6;torso.rotation.x=0.26;r.add(torso);P.torso=torso;
+  const shoulder=ellip(0.32,0.1,0.15,flesh);shoulder.position.set(0,2.0,0.05);shoulder.rotation.x=0.2;r.add(shoulder);
+  const chest=ellip(0.13,0.16,0.1,sinew);chest.position.set(0,1.82,0.12);chest.rotation.x=0.2;r.add(chest);
+  const hips=ellip(0.15,0.13,0.12,flesh);hips.position.y=1.2;r.add(hips);
+  // segmented spine that can writhe (each vertebra animated in syncMesh)
+  for(let i=0;i<7;i++){
+    const seg=new THREE.Group();
+    const vert=new THREE.Mesh(new THREE.ConeGeometry(0.03,0.11,5),sinew);
+    vert.rotation.x=-2.5;seg.add(vert);
+    seg.position.set(0,1.28+i*0.13,-0.14-i*0.012);
+    r.add(seg);P.spine.push(seg);
+  }
+  // head thrust forward on a stub neck — an elongated skull with a muzzle
+  const headP=new THREE.Group();headP.position.set(0,2.14,0.2);headP.rotation.x=0.16;r.add(headP);P.head=headP;
+  const skull=ellip(0.115,0.15,0.185,flesh);skull.position.set(0,0.07,0.03);headP.add(skull);
+  const jaw=new THREE.Group();jaw.position.set(0,0.0,0.06);headP.add(jaw);P.jaw=jaw;   // hinge pivot
+  const jawMesh=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.055,0.2),sinew);
+  jawMesh.position.set(0,-0.03,0.06);jaw.add(jawMesh);
+  for(const s of[-1,1]){                                    // sunken, glowing eyes on the muzzle
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.032,7,7),eyeMat);
+    eye.position.set(s*0.05,0.05,0.17);headP.add(eye);
+  }
+  // arms (long, spidery) + forearms + claws
+  P.armL=capLimb(0.7,0.07,0.05,flesh);P.armL.position.set(-0.28,2.0,0.06);r.add(P.armL);
+  P.armR=capLimb(0.7,0.07,0.05,flesh);P.armR.position.set(0.28,2.0,0.06);r.add(P.armR);
+  P.foreL=capLimb(0.78,0.05,0.035,flesh);P.foreL.position.y=-0.7;P.armL.add(P.foreL);
+  P.foreR=capLimb(0.78,0.05,0.035,flesh);P.foreR.position.y=-0.7;P.armR.add(P.foreR);
+  for(const fore of[P.foreL,P.foreR])
+    for(let i=0;i<3;i++){
+      const claw=new THREE.Mesh(new THREE.ConeGeometry(0.016,0.2,5),sinew);
+      claw.position.set((i-1)*0.04,-0.84,0.02);claw.rotation.x=Math.PI;fore.add(claw);
+    }
+  // legs + shins
+  P.legL=capLimb(0.6,0.09,0.06,flesh);P.legL.position.set(-0.13,1.12,0);r.add(P.legL);
+  P.legR=capLimb(0.6,0.09,0.06,flesh);P.legR.position.set(0.13,1.12,0);r.add(P.legR);
+  P.shinL=capLimb(0.62,0.06,0.04,flesh);P.shinL.position.y=-0.6;P.legL.add(P.shinL);
+  P.shinR=capLimb(0.62,0.06,0.04,flesh);P.shinR.position.y=-0.6;P.legR.add(P.shinR);
+  return{root:r,parts:P};
+}
+/* pure-black, unlit clone used behind the frosted glass */
+function makeSilhouetteRig(){
+  const rig=buildCreatureRig({flesh:M.black,sinew:M.black,eye:M.black});
+  rig.root.traverse(o=>{o.castShadow=false;});
+  return rig;
+}
 
 /* ================= MONSTER ================= */
 const Monster={
@@ -18,53 +85,11 @@ const Monster={
   northRoute:[13,9,12,16,18,19,23,24,23,25,26,22,21,20,19,18,16,5],
   get patrolRoute(){return power.on?this.northRoute:this.baseRoute;},
   build(){
-    const skin=new THREE.MeshStandardMaterial({color:0x4e4a42,roughness:0.88,metalness:0.02});
-    const sinew=new THREE.MeshStandardMaterial({color:0x2a100c,roughness:0.9});
-    const r=new THREE.Group();this.root=r;scene.add(r);
-    const P=this.parts;
-    // gaunt, hunched torso
-    const torso=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.95,0.26),skin);
-    torso.position.y=1.62;torso.rotation.x=0.3;r.add(torso);P.torso=torso;
-    const chest=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.3),skin);
-    chest.position.set(0,1.98,0.1);chest.rotation.x=0.35;r.add(chest);
-    const hips=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.26,0.24),skin);
-    hips.position.y=1.16;r.add(hips);
-    // spine ridge
-    for(let i=0;i<5;i++){
-      const sp=new THREE.Mesh(new THREE.ConeGeometry(0.028,0.09,4),sinew);
-      sp.position.set(0,1.35+i*0.16,-0.15-i*0.015);sp.rotation.x=-2.6;r.add(sp);
-    }
-    // head, craned forward
-    const headP=new THREE.Group();headP.position.set(0,2.16,0.22);headP.rotation.x=0.35;r.add(headP);P.head=headP;
-    const skull=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8),skin);
-    skull.scale.set(0.78,1.25,0.95);skull.position.y=0.1;headP.add(skull);
-    const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.09,0.2),sinew);
-    jaw.position.set(0,-0.02,0.08);headP.add(jaw);P.jaw=jaw;
-    for(const s of[-1,1]){
-      const eye=new THREE.Mesh(new THREE.SphereGeometry(0.028,6,6),
-        new THREE.MeshStandardMaterial({color:0x220000,emissive:0xff1a1a,emissiveIntensity:2.2}));
-      eye.position.set(s*0.06,0.14,0.12);headP.add(eye);
-    }
-    // limbs: pivot groups so we can swing them
-    const limb=(len,rad,mat)=>{
-      const g=new THREE.Group();
-      const m=new THREE.Mesh(new THREE.CylinderGeometry(rad*0.7,rad,len,7),mat);
-      m.position.y=-len/2;g.add(m);return g;
-    };
-    P.armL=limb(0.72,0.06,skin);P.armL.position.set(-0.3,2.0,0.06);r.add(P.armL);
-    P.armR=limb(0.72,0.06,skin);P.armR.position.set(0.3,2.0,0.06);r.add(P.armR);
-    P.foreL=limb(0.8,0.05,skin);P.foreL.position.y=-0.72;P.armL.add(P.foreL);
-    P.foreR=limb(0.8,0.05,skin);P.foreR.position.y=-0.72;P.armR.add(P.foreR);
-    for(const fore of[P.foreL,P.foreR])
-      for(let i=0;i<3;i++){
-        const claw=new THREE.Mesh(new THREE.ConeGeometry(0.016,0.2,5),sinew);
-        claw.position.set((i-1)*0.04,-0.86,0.02);claw.rotation.x=Math.PI;fore.add(claw);
-      }
-    P.legL=limb(0.62,0.08,skin);P.legL.position.set(-0.13,1.12,0);r.add(P.legL);
-    P.legR=limb(0.62,0.08,skin);P.legR.position.set(0.13,1.12,0);r.add(P.legR);
-    P.shinL=limb(0.64,0.06,skin);P.shinL.position.y=-0.62;P.legL.add(P.shinL);
-    P.shinR=limb(0.64,0.06,skin);P.shinR.position.y=-0.62;P.legR.add(P.shinR);
-    r.traverse(o=>{o.castShadow=true;});
+    const eyeMat=new THREE.MeshStandardMaterial({color:0x330000,emissive:0xff2018,emissiveIntensity:3.4});
+    const rig=buildCreatureRig({flesh:M.flesh,sinew:M.sinew,eye:eyeMat});
+    this.root=rig.root;this.parts=rig.parts;
+    this.root.traverse(o=>{o.castShadow=true;});
+    scene.add(this.root);
     this.syncMesh(0);
   },
   reset(){
@@ -246,22 +271,38 @@ const Monster={
     const sp=this.state==='dormant'?0:this.speed();
     this.animT+=dt*sp*2.4;
     const swing=(this.state==='dormant')?0:(chasing?0.62:0.38);
-    P.legL.rotation.x=Math.sin(this.animT)*swing;
-    P.legR.rotation.x=-Math.sin(this.animT)*swing;
-    P.shinL.rotation.x=Math.max(0,-Math.sin(this.animT))*0.7;
-    P.shinR.rotation.x=Math.max(0,Math.sin(this.animT))*0.7;
-    P.armL.rotation.x=-Math.sin(this.animT)*swing*(chasing?0.25:0.8)+(chasing?-0.85:0.15);
-    P.armR.rotation.x=Math.sin(this.animT)*swing*(chasing?0.25:0.8)+(chasing?-0.85:0.15);
-    P.armL.rotation.z=chasing?0.18:0.06;
-    P.armR.rotation.z=chasing?-0.18:-0.06;
-    P.foreL.rotation.x=chasing?-0.55:-0.25;
-    P.foreR.rotation.x=chasing?-0.55:-0.25;
-    r.position.y=Math.abs(Math.sin(this.animT))*0.05;
-    r.rotation.x=chasing?0.18:0.05;
-    P.head.rotation.y=Math.sin(this.animT*0.4)*0.2;
-    P.jaw.rotation.x=chasing?0.5+Math.sin(this.animT*2)*0.15:0.08;
+    const A=this.animT;
+    // high-frequency tremor — it can never hold still
+    const tremor=(Math.sin(A*18.7)*0.6+Math.sin(A*7.3)*0.4)*(chasing?0.05:0.028)+(this.state==='dormant'?Math.sin(A*11)*0.006:0);
+    // asymmetric limp: the LEFT leg is ruined — shallow swing, dragging hitch
+    const gaitL=Math.sin(A), gaitR=Math.sin(A+0.4);   // phase offset makes the step uneven
+    P.legL.rotation.x=gaitL*swing*0.5-0.08;
+    P.legR.rotation.x=-gaitR*swing;
+    P.shinL.rotation.x=Math.max(0,-gaitL)*0.4;        // barely bends
+    P.shinR.rotation.x=Math.max(0,gaitR)*0.8;
+    // arms: reach forward to grab while chasing; hang and sway otherwise
+    P.armL.rotation.x=(chasing?-1.75:0.15)-gaitL*swing*(chasing?0.15:0.7);
+    P.armR.rotation.x=(chasing?-1.75:0.15)+gaitR*swing*(chasing?0.15:0.85);
+    P.armL.rotation.z=(chasing?0.34:0.06)+tremor;
+    P.armR.rotation.z=(chasing?-0.34:-0.06)-tremor;
+    P.foreL.rotation.x=chasing?-0.35:-0.25;
+    P.foreR.rotation.x=chasing?-0.3:-0.25;
+    // body: limp bob (favours the good leg), a permanent list, and tremor
+    r.position.y=Math.abs(Math.sin(A))*0.05-Math.max(0,gaitL)*0.025;
+    r.rotation.x=(chasing?0.2:0.06)+tremor*0.5;
+    r.rotation.z=Math.sin(A)*0.03+0.02+tremor;
+    // head: thrust forward; tips its face down to fix its eyes on you (it's taller)
+    P.head.rotation.y=Math.sin(A*0.4)*0.2+tremor*2;
+    P.head.rotation.x=(chasing?0.05:0.14)+tremor*1.6;
+    P.head.rotation.z=tremor;
+    P.torso.rotation.z=tremor*1.2;
+    // spine: a lateral wave writhing down the back
+    for(let i=0;i<P.spine.length;i++)
+      P.spine[i].rotation.z=Math.sin(A*3+i*0.9)*0.10+tremor;
+    // jaw
+    P.jaw.rotation.x=chasing?0.55+Math.sin(A*2)*0.18:0.08+Math.abs(tremor)*2;
   },
 };
 
 refs.monster=Monster;
-export{Monster};
+export{Monster,makeSilhouetteRig};

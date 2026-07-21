@@ -118,6 +118,33 @@ const bloodTex=makeTex(256,256,(x,w,h)=>{
     x.fillRect(w/2+rand(-70,70),h/2+rand(-70,70),rand(2,6),rand(2,18));}
 },1,1);
 bloodTex.wrapS=bloodTex.wrapT=THREE.ClampToEdgeWrapping;
+/* mutant flesh — mottled skin, dark branching veins, blood, wet noise */
+const fleshTex=makeTex(256,256,(x,w,h)=>{
+  x.fillStyle='#6b5a52';x.fillRect(0,0,w,h);                 // greyish flesh base
+  for(let i=0;i<44;i++){                                     // mottled blotches
+    const cx=Math.random()*w,cy=Math.random()*h,r=rand(8,42);
+    const c=Math.random()<0.5?'84,62,58':'46,28,30';
+    const gr=x.createRadialGradient(cx,cy,1,cx,cy,r);
+    gr.addColorStop(0,`rgba(${c},${rand(0.10,0.34)})`);gr.addColorStop(1,`rgba(${c},0)`);
+    x.fillStyle=gr;x.beginPath();x.arc(cx,cy,r,0,7);x.fill();
+  }
+  x.lineCap='round';                                         // branching veins
+  for(let i=0;i<30;i++){
+    let px=Math.random()*w,py=Math.random()*h;
+    x.strokeStyle=`rgba(${rand(58,112)|0},${rand(4,22)|0},${rand(20,44)|0},${rand(0.18,0.5)})`;
+    x.lineWidth=rand(0.6,2.4);x.beginPath();x.moveTo(px,py);
+    const steps=3+(Math.random()*5|0);
+    for(let s=0;s<steps;s++){px+=rand(-28,28);py+=rand(-28,28);x.lineTo(px,py);}
+    x.stroke();
+  }
+  for(let i=0;i<12;i++){                                     // blood smears
+    const cx=Math.random()*w,cy=Math.random()*h,r=rand(6,24);
+    const gr=x.createRadialGradient(cx,cy,1,cx,cy,r);
+    gr.addColorStop(0,`rgba(72,6,9,${rand(0.2,0.5)})`);gr.addColorStop(1,'rgba(72,6,9,0)');
+    x.fillStyle=gr;x.beginPath();x.arc(cx,cy,r,0,7);x.fill();
+  }
+  speckle(x,w,h,1500,0.06);
+});
 
 /* ================= MATERIALS ================= */
 const M={
@@ -136,6 +163,8 @@ const M={
   blob:new THREE.MeshStandardMaterial({color:0x241f1a,roughness:0.95}),
   paper:new THREE.MeshStandardMaterial({map:paperTex,roughness:0.95,side:THREE.DoubleSide}),
   blood:new THREE.MeshStandardMaterial({map:bloodTex,transparent:true,roughness:0.6,depthWrite:false}),
+  flesh:new THREE.MeshStandardMaterial({map:fleshTex,bumpMap:fleshTex,bumpScale:0.02,roughness:0.52,metalness:0.02}),
+  sinew:new THREE.MeshStandardMaterial({map:fleshTex,bumpMap:fleshTex,bumpScale:0.02,color:0x7a2a24,roughness:0.42,metalness:0.03}),
   black:new THREE.MeshBasicMaterial({color:0x000000}),
   keycard:new THREE.MeshStandardMaterial({color:0x8a1418,emissive:0x5a0c0f,emissiveIntensity:0.5,roughness:0.4}),
   fuse:new THREE.MeshStandardMaterial({color:0xa85a18,emissive:0x542a08,emissiveIntensity:0.4,roughness:0.5}),

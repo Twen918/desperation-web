@@ -1,4 +1,4 @@
-import{$,rand,dist2}from'./utils.js';
+import{$,rand,dist2,lerp}from'./utils.js';
 import{G,refs,doors}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{camera}from'./gfx.js';
@@ -9,6 +9,7 @@ import{Monster}from'./entities/monster.js';
 
 /* ================= CATCH / DAMAGE / JUMPSCARE ================= */
 let caughtT=0;
+const caughtCam=new THREE.Vector3();   // frozen camera anchor for the death shake
 const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
 /* shove the monster off the player and send it searching — gives an escape window */
@@ -54,7 +55,7 @@ function catchPlayer(){
     return;
   }
   // --- death → jumpscare → respawn ---
-  G.state='caught';caughtT=0;
+  G.state='caught';caughtT=0;caughtCam.copy(camera.position);
   AudioSys.scream();AudioSys.stopChase();
   damagePunch();
   flashRed(0.85,1500);
@@ -83,18 +84,27 @@ function updateVitals(dt){
 }
 function updateCaught(dt){
   caughtT+=dt;
-  // camera shake + stare into the jaws
-  camera.position.x+=rand(-0.02,0.02);
-  camera.position.y+=rand(-0.02,0.02);
-  Monster.parts.head.position.z=0.14+Math.min(caughtT*0.3,0.22);
-  if(caughtT>1.0&&caughtT<1.06)fadeTo(1,500);
-  if(caughtT>1.9){
+  const t=caughtT;
+  // violent shake around the frozen catch position (ramps up)
+  const amp=Math.min(0.02+t*0.11,0.11);
+  camera.position.set(caughtCam.x+rand(-amp,amp),caughtCam.y+rand(-amp,amp),caughtCam.z+rand(-amp,amp)*0.6);
+  camera.rotation.z=rand(-amp,amp)*0.9;
+  // FOV punches inward toward the face
+  const fovT=lerp(72,44,Math.min(t*2.4,1));
+  camera.fov+=(fovT-camera.fov)*Math.min(1,dt*16);
+  camera.updateProjectionMatrix();
+  // head lunges into the lens, jaw yawns wide with a chomping wobble
+  Monster.parts.head.position.z=0.22+Math.min(t*0.55,0.4);
+  Monster.parts.jaw.rotation.x=Math.min(0.9+t*1.3,1.7)+Math.sin(t*38)*0.09;
+  if(t>1.0&&t<1.06)fadeTo(1,500);
+  if(t>1.9){
     // respawn in the cell — items kept, monster reset, wounds healed
     G.deaths++;G.noise=0;
     G.hp=G.hpMax;G.hurtT=0;G.healT=0;resetBlood();
+    camera.fov=72;camera.rotation.z=0;camera.updateProjectionMatrix();
     Player.reset();
     Monster.parts.jaw.rotation.x=0.08;
-    Monster.parts.head.position.z=0.14;
+    Monster.parts.head.position.z=0.22;
     Monster.reset();
     G.state='play';
     fadeTo(0,1000);
