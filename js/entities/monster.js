@@ -295,11 +295,11 @@ const Monster={
     if(P.torso){P.torso.rotation.y=Math.sin(A)*0.06;P.torso.rotation.z=jerk*0.4;} // shoulder counter-twist
     // === ARMS — counter-swing to the legs; forearms LAG behind (follow-through) ===
     if(chasing){
-      P.armL.rotation.x=-1.75-Math.sin(phL)*0.12;
-      P.armR.rotation.x=-1.75+Math.sin(phR)*0.12;
-      P.armL.rotation.z=0.34+jerk;P.armR.rotation.z=-0.34-jerk;
-      P.foreL.rotation.x=-0.4+Math.sin(phL-0.5)*0.12;
-      P.foreR.rotation.x=-0.35+Math.sin(phR-0.5)*0.12;
+      // arms outstretched straight ahead, zombie-style — parallel, not crossed
+      P.armL.rotation.x=-1.5+Math.sin(phL)*0.07;   // ~horizontal forward, faint lurch
+      P.armR.rotation.x=-1.5+Math.sin(phR)*0.07;
+      P.armL.rotation.z=0.05+jerk*0.5;P.armR.rotation.z=-0.05-jerk*0.5;  // nearly parallel
+      P.foreL.rotation.x=0.06;P.foreR.rotation.x=0.06;   // straight, hands droop a touch
     }else{
       P.armL.rotation.x=-Math.sin(phL)*swing*0.7+0.12;           // opposite the same-side leg
       P.armR.rotation.x=-Math.sin(phR)*swing*0.7+0.12;
