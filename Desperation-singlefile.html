@@ -18,6 +18,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
     box-shadow:inset 0 0 180px rgba(0,0,0,.75);}
   #grain{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6;
     opacity:.075;mix-blend-mode:overlay;image-rendering:pixelated;}
+  /* blood damage vignette — opacity driven from JS (see ui.js) */
+  #bloodDmg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:7;opacity:0;}
   /* ---- HUD ---- */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;}
   #crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;
@@ -42,6 +44,16 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   #noiseLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;margin-bottom:5px;text-shadow:0 1px 3px #000;}
   #noiseBarBg{height:5px;background:rgba(10,14,16,.8);border:1px solid rgba(140,155,158,.35);border-radius:2px;overflow:hidden;}
   #noiseBar{height:100%;width:0%;background:#5f9f6f;transition:background .2s;}
+  /* ---- condition / health pips ---- */
+  #health{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:9px;}
+  #health .hpLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;text-shadow:0 1px 3px #000;}
+  #health .pips{display:flex;gap:5px;}
+  #health .pip{width:16px;height:6px;border:1px solid rgba(150,60,60,.55);border-radius:1px;
+    background:rgba(20,10,12,.6);transition:background .25s,box-shadow .25s;}
+  #health .pip.on{background:#b23a3a;box-shadow:0 0 7px rgba(200,50,50,.7);}
+  #health .pip.hurt{border-color:rgba(200,70,70,.9);animation:hpwarn 1s steps(1) infinite;}
+  @keyframes hpwarn{0%,100%{background:rgba(60,14,16,.6)}50%{background:rgba(120,26,28,.85)}}
   /* ---- locker view ---- */
   #lockerView{position:fixed;inset:0;z-index:8;pointer-events:none;display:none;
     background:linear-gradient(90deg,#000 0%,#000 41.5%,rgba(0,0,0,.06) 43%,rgba(0,0,0,.75) 46.5%,#000 48%,
@@ -91,6 +103,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <canvas id="grain" width="160" height="90"></canvas>
+<canvas id="bloodDmg" width="640" height="360"></canvas>
 
 <div id="hud">
   <div id="crosshair"></div>
@@ -101,6 +114,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   <div id="prompt"></div>
   <div id="toast"></div>
   <div id="noiseWrap"><div id="noiseLabel">NOISE</div><div id="noiseBarBg"><div id="noiseBar"></div></div></div>
+  <div id="health"><span class="hpLabel">CONDITION</span><span class="pips"></span></div>
 </div>
 
 <div id="lockerView"></div>
@@ -257,6 +271,7 @@ const G={
   hasMap:false,hasKeycard:false,hasExitKey:false,hasFuse:false,fuseIn:false,switches:0,
   syringe:false,regen:false,regenUsed:false,noiseBuff:false,vision:false,
   alarmT:0,alarmUsed:false,radioOn:0,radioCD:0,drainT:0,ambSave:0,
+  hp:2,hpMax:2,hurtT:0,healT:0,   // two lives: first hit wounds, second kills
   noise:0,hidden:false,hiddenSpot:null,doomed:false,
   mapOpen:false,noteOpen:false,
   silDone:false,labEntered:false,cellOpened:false,leftCell:false,
@@ -583,6 +598,59 @@ function updateHUD(dt){
     $('hearInd').style.opacity=(refs.monster.state==='investigate'||refs.monster.state==='search')?1:0;
     $('chaseInd').style.opacity=refs.monster.state==='chase'?1:0;
   }
+  // condition pips (two lives)
+  const hp=G.hp,hurt=hp<=1&&hp>0;
+  if(hp!==lastHp){
+    let pips='';
+    for(let i=0;i<G.hpMax;i++)pips+='<span class="pip'+(i<hp?' on':'')+(hurt&&i<hp?' hurt':'')+'"></span>';
+    $('health').querySelector('.pips').innerHTML=pips;
+    lastHp=hp;
+  }
+  updateBlood(dt);
+}
+/* ---- blood damage vignette ---------------------------------------------
+   A procedural red splatter border. Its opacity is eased every frame toward
+   a target set by health: 0 at full HP, a breathing ~0.5 while wounded, and
+   a hard punch on each hit that decays back down. Mirrors the UE build's
+   bloodscreen damage effect. */
+let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0,lastHp=-1;
+function drawBlood(cv){
+  const x=cv.getContext('2d'),w=cv.width,h=cv.height,cx=w/2,cy=h/2;
+  x.clearRect(0,0,w,h);
+  // keep the centre clear so a wounded player can still see and navigate
+  const g=x.createRadialGradient(cx,cy,Math.min(w,h)*0.34,cx,cy,Math.max(w,h)*0.66);
+  g.addColorStop(0,'rgba(120,0,4,0)');
+  g.addColorStop(0.5,'rgba(116,2,8,0)');
+  g.addColorStop(0.82,'rgba(108,2,8,0.42)');
+  g.addColorStop(1,'rgba(70,0,4,0.95)');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+  const edge=()=>{const a=Math.random()*Math.PI*2,r=0.66+Math.random()*0.42;   // hug the border
+    return[cx+Math.cos(a)*cx*r*1.05,cy+Math.sin(a)*cy*r*1.05];};
+  for(let i=0;i<150;i++){const[bx,by]=edge(),rad=6+Math.random()*44,a=0.13+Math.random()*0.45;
+    const gr=x.createRadialGradient(bx,by,1,bx,by,rad);
+    gr.addColorStop(0,'rgba('+(118+Math.random()*64|0)+',4,7,'+a+')');
+    gr.addColorStop(1,'rgba(88,0,5,0)');
+    x.fillStyle=gr;x.beginPath();x.arc(bx,by,rad,0,7);x.fill();}
+  for(let i=0;i<420;i++){const[bx,by]=edge();
+    x.fillStyle='rgba('+(100+Math.random()*90|0)+',0,7,'+(0.18+Math.random()*0.45)+')';
+    const s=1+Math.random()*3;x.fillRect(bx,by,s,s);}
+  for(let i=0;i<26;i++){const bx=Math.random()*w,by=Math.random()<0.5?0:h,dir=by===0?1:-1,len=22+Math.random()*80;
+    const gr=x.createLinearGradient(bx,by,bx,by+dir*len);
+    gr.addColorStop(0,'rgba(110,0,6,0.55)');gr.addColorStop(1,'rgba(110,0,6,0)');
+    x.fillStyle=gr;x.fillRect(bx-1.5,Math.min(by,by+dir*len),3,len);}
+}
+function damagePunch(){ bloodPunch=1; }
+function resetBlood(){ bloodPunch=0;bloodOp=0;if(bloodEl)bloodEl.style.opacity=0; }
+function updateBlood(dt){
+  if(!bloodEl)return;
+  bloodPhase+=dt;
+  bloodPunch=Math.max(0,bloodPunch-dt*1.25);
+  let base=0;
+  if(G.hp<=1&&G.hp>0&&(G.state==='play'||G.state==='caught'))
+    base=0.30+Math.sin(bloodPhase*2.3)*0.07;   // subtle "you're hurt" reminder
+  let target=Math.min(0.96,base+bloodPunch*0.62);  // strong flash on the hit itself
+  bloodOp+=(target-bloodOp)*Math.min(1,dt*8);
+  bloodEl.style.opacity=bloodOp.toFixed(3);
 }
 function flashRed(op,ms){
   const r=$('redFlash');
@@ -634,6 +702,10 @@ function drawMap(){
   x.font='11px Consolas,monospace';
   x.fillText('N ↑',c.width-44,24);
 }
+
+/* draw the blood splatter once at load (element lives in the page markup) */
+bloodEl=$('bloodDmg');
+if(bloodEl)drawBlood(bloodEl);
 
 /* ================= FILM GRAIN ================= */
 const grainC=$('grain'),grainX=grainC.getContext('2d');
@@ -2065,31 +2137,56 @@ function updateSilhouette(dt){
 }
 
 /* ===================== js/gameflow.js ===================== */
-/* ================= CATCH / JUMPSCARE ================= */
+/* ================= CATCH / DAMAGE / JUMPSCARE ================= */
 let caughtT=0;
+const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
+
+/* shove the monster off the player and send it searching — gives an escape window */
+function shoveMonster(distm){
+  let dx=Monster.x-Player.x,dz=Monster.z-Player.z;
+  const d=Math.hypot(dx,dz)||1;dx/=d;dz/=d;
+  let mx=Player.x+dx*distm,mz=Player.z+dz*distm;
+  [mx,mz]=collideCircle(mx,mz,0.42);
+  Monster.x=mx;Monster.z=mz;
+  Monster.state='search';Monster.scanT=3.2;Monster.path=null;Monster.lostT=0;
+  AudioSys.stopChase();
+}
+function freeFromLocker(){
+  if(!G.hidden)return;
+  G.hidden=false;
+  if(G.hiddenSpot){Player.x=G.hiddenSpot.ex;Player.z=G.hiddenSpot.ez;G.hiddenSpot=null;}
+  $('lockerView').style.display='none';
+}
 function catchPlayer(){
   if(G.state!=='play')return;
-  // regen serum: tear free from one attack
+  if(G.hurtT>0)return;   // i-frames: ignore repeated grabs right after a hit
+  freeFromLocker();
+  G.doomed=false;
+  G.hp--;G.healT=0;
+  // --- survived the hit: wound, knockback, mercy window ---
+  if(G.hp>0){
+    G.hurtT=1.3;
+    damagePunch();
+    flashRed(0.55,900);
+    AudioSys.growl(0.65);AudioSys.clank();
+    shoveMonster(4);
+    showToast('It struck you! One more hit and you are dead — RUN.',3.2);
+    return;
+  }
+  // --- would die: regen serum is the last save ---
   if(G.regen&&!G.regenUsed){
-    G.regenUsed=true;
-    if(G.hidden){G.hidden=false;G.hiddenSpot&&(Player.x=G.hiddenSpot.ex,Player.z=G.hiddenSpot.ez);G.hiddenSpot=null;$('lockerView').style.display='none';}
-    G.doomed=false;
+    G.regenUsed=true;G.hp=1;G.hurtT=1.4;
+    damagePunch();
     flashRed(0.7,1400);
     AudioSys.growl(0.7);AudioSys.clank();
-    let dx=Monster.x-Player.x,dz=Monster.z-Player.z;
-    const d=Math.hypot(dx,dz)||1;dx/=d;dz/=d;
-    let mx=Player.x+dx*4,mz=Player.z+dz*4;
-    [mx,mz]=collideCircle(mx,mz,0.42);
-    Monster.x=mx;Monster.z=mz;
-    Monster.state='search';Monster.scanT=3.5;Monster.path=null;Monster.lostT=0;
-    AudioSys.stopChase();
+    shoveMonster(4);
     showToast('The regen serum knits your wounds shut —\nyou tear yourself free!',3.2);
     return;
   }
+  // --- death → jumpscare → respawn ---
   G.state='caught';caughtT=0;
   AudioSys.scream();AudioSys.stopChase();
-  if(G.hidden){G.hidden=false;G.hiddenSpot=null;$('lockerView').style.display='none';}
-  G.doomed=false;
+  damagePunch();
   flashRed(0.85,1500);
   // slam the monster right into the lens
   const dir=new THREE.Vector3();camera.getWorldDirection(dir);
@@ -2100,6 +2197,20 @@ function catchPlayer(){
   Monster.parts.jaw.rotation.x=0.9;
   Monster.syncMesh(0);
 }
+/* per-frame: i-frame countdown and slow heal back to full */
+function updateVitals(dt){
+  if(G.state!=='play')return;
+  if(G.hurtT>0)G.hurtT-=dt;
+  if(G.hp<G.hpMax){
+    if(G.hurtT<=0){
+      G.healT+=dt;
+      if(G.healT>=HEAL_TIME){
+        G.hp=G.hpMax;G.healT=0;
+        showToast('Your wounds have closed. You feel steady again.',2.8);
+      }
+    }
+  }else G.healT=0;
+}
 function updateCaught(dt){
   caughtT+=dt;
   // camera shake + stare into the jaws
@@ -2108,8 +2219,9 @@ function updateCaught(dt){
   Monster.parts.head.position.z=0.14+Math.min(caughtT*0.3,0.22);
   if(caughtT>1.0&&caughtT<1.06)fadeTo(1,500);
   if(caughtT>1.9){
-    // respawn in the cell — items kept, monster reset
+    // respawn in the cell — items kept, monster reset, wounds healed
     G.deaths++;G.noise=0;
+    G.hp=G.hpMax;G.hurtT=0;G.healT=0;resetBlood();
     Player.reset();
     Monster.parts.jaw.rotation.x=0.08;
     Monster.parts.head.position.z=0.14;
@@ -2236,6 +2348,7 @@ function tick(){
     updateSilhouette(dt);
     updateGadgets(dt);
     updateTriggers(dt);
+    updateVitals(dt);
     updateFlicker(dt);
     if(!G.hidden&&G.noise>0&&Math.hypot(Player.vx,Player.vz)<0.5)
       G.noise=Math.max(0,G.noise-26*dt);
@@ -2310,7 +2423,7 @@ window.dbg={
 };
 
 /* console/testing access (same objects, not copies) */
-window.__game={G,keys,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateFlashlight,updateCaught,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};
+window.__game={G,keys,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateVitals,updateFlashlight,updateCaught,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};
 </script>
 </body>
 </html>

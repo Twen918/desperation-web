@@ -7,7 +7,7 @@ import{updateObjective,updateHUD,updateGrain,drawMap,fadeTo}from'./ui.js';
 import{Player,updateFlashlight}from'./entities/player.js';
 import{Monster}from'./entities/monster.js';
 import{onKeyPress,updatePrompt,buildGameplayObjects,buildSilhouette,updateSilhouette,updateGadgets,enterLocker,exitLocker,eventNoise}from'./gameplay.js';
-import{updateCaught,updateTriggers}from'./gameflow.js';
+import{updateCaught,updateTriggers,updateVitals}from'./gameflow.js';
 
 /* ================= INPUT ================= */
 let pointerLocked=false;
@@ -69,6 +69,7 @@ function tick(){
     updateSilhouette(dt);
     updateGadgets(dt);
     updateTriggers(dt);
+    updateVitals(dt);
     updateFlicker(dt);
     if(!G.hidden&&G.noise>0&&Math.hypot(Player.vx,Player.vz)<0.5)
       G.noise=Math.max(0,G.noise-26*dt);
@@ -143,4 +144,4 @@ window.dbg={
 };
 
 /* console/testing access (same objects, not copies) */
-window.__game={G,keys,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateFlashlight,updateCaught,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};
+window.__game={G,keys,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateVitals,updateFlashlight,updateCaught,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};

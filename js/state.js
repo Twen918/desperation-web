@@ -7,6 +7,7 @@ const G={
   hasMap:false,hasKeycard:false,hasExitKey:false,hasFuse:false,fuseIn:false,switches:0,
   syringe:false,regen:false,regenUsed:false,noiseBuff:false,vision:false,
   alarmT:0,alarmUsed:false,radioOn:0,radioCD:0,drainT:0,ambSave:0,
+  hp:2,hpMax:2,hurtT:0,healT:0,   // two lives: first hit wounds, second kills
   noise:0,hidden:false,hiddenSpot:null,doomed:false,
   mapOpen:false,noteOpen:false,
   silDone:false,labEntered:false,cellOpened:false,leftCell:false,

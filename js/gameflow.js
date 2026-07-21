@@ -3,35 +3,60 @@ import{G,refs,doors}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{camera}from'./gfx.js';
 import{collideCircle,doorUnlock,power}from'./world.js';
-import{showToast,updateObjective,flashRed,fadeTo}from'./ui.js';
+import{showToast,updateObjective,flashRed,fadeTo,damagePunch,resetBlood}from'./ui.js';
 import{Player}from'./entities/player.js';
 import{Monster}from'./entities/monster.js';
 
-/* ================= CATCH / JUMPSCARE ================= */
+/* ================= CATCH / DAMAGE / JUMPSCARE ================= */
 let caughtT=0;
+const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
+
+/* shove the monster off the player and send it searching — gives an escape window */
+function shoveMonster(distm){
+  let dx=Monster.x-Player.x,dz=Monster.z-Player.z;
+  const d=Math.hypot(dx,dz)||1;dx/=d;dz/=d;
+  let mx=Player.x+dx*distm,mz=Player.z+dz*distm;
+  [mx,mz]=collideCircle(mx,mz,0.42);
+  Monster.x=mx;Monster.z=mz;
+  Monster.state='search';Monster.scanT=3.2;Monster.path=null;Monster.lostT=0;
+  AudioSys.stopChase();
+}
+function freeFromLocker(){
+  if(!G.hidden)return;
+  G.hidden=false;
+  if(G.hiddenSpot){Player.x=G.hiddenSpot.ex;Player.z=G.hiddenSpot.ez;G.hiddenSpot=null;}
+  $('lockerView').style.display='none';
+}
 function catchPlayer(){
   if(G.state!=='play')return;
-  // regen serum: tear free from one attack
+  if(G.hurtT>0)return;   // i-frames: ignore repeated grabs right after a hit
+  freeFromLocker();
+  G.doomed=false;
+  G.hp--;G.healT=0;
+  // --- survived the hit: wound, knockback, mercy window ---
+  if(G.hp>0){
+    G.hurtT=1.3;
+    damagePunch();
+    flashRed(0.55,900);
+    AudioSys.growl(0.65);AudioSys.clank();
+    shoveMonster(4);
+    showToast('It struck you! One more hit and you are dead — RUN.',3.2);
+    return;
+  }
+  // --- would die: regen serum is the last save ---
   if(G.regen&&!G.regenUsed){
-    G.regenUsed=true;
-    if(G.hidden){G.hidden=false;G.hiddenSpot&&(Player.x=G.hiddenSpot.ex,Player.z=G.hiddenSpot.ez);G.hiddenSpot=null;$('lockerView').style.display='none';}
-    G.doomed=false;
+    G.regenUsed=true;G.hp=1;G.hurtT=1.4;
+    damagePunch();
     flashRed(0.7,1400);
     AudioSys.growl(0.7);AudioSys.clank();
-    let dx=Monster.x-Player.x,dz=Monster.z-Player.z;
-    const d=Math.hypot(dx,dz)||1;dx/=d;dz/=d;
-    let mx=Player.x+dx*4,mz=Player.z+dz*4;
-    [mx,mz]=collideCircle(mx,mz,0.42);
-    Monster.x=mx;Monster.z=mz;
-    Monster.state='search';Monster.scanT=3.5;Monster.path=null;Monster.lostT=0;
-    AudioSys.stopChase();
+    shoveMonster(4);
     showToast('The regen serum knits your wounds shut —\nyou tear yourself free!',3.2);
     return;
   }
+  // --- death → jumpscare → respawn ---
   G.state='caught';caughtT=0;
   AudioSys.scream();AudioSys.stopChase();
-  if(G.hidden){G.hidden=false;G.hiddenSpot=null;$('lockerView').style.display='none';}
-  G.doomed=false;
+  damagePunch();
   flashRed(0.85,1500);
   // slam the monster right into the lens
   const dir=new THREE.Vector3();camera.getWorldDirection(dir);
@@ -42,6 +67,20 @@ function catchPlayer(){
   Monster.parts.jaw.rotation.x=0.9;
   Monster.syncMesh(0);
 }
+/* per-frame: i-frame countdown and slow heal back to full */
+function updateVitals(dt){
+  if(G.state!=='play')return;
+  if(G.hurtT>0)G.hurtT-=dt;
+  if(G.hp<G.hpMax){
+    if(G.hurtT<=0){
+      G.healT+=dt;
+      if(G.healT>=HEAL_TIME){
+        G.hp=G.hpMax;G.healT=0;
+        showToast('Your wounds have closed. You feel steady again.',2.8);
+      }
+    }
+  }else G.healT=0;
+}
 function updateCaught(dt){
   caughtT+=dt;
   // camera shake + stare into the jaws
@@ -50,8 +89,9 @@ function updateCaught(dt){
   Monster.parts.head.position.z=0.14+Math.min(caughtT*0.3,0.22);
   if(caughtT>1.0&&caughtT<1.06)fadeTo(1,500);
   if(caughtT>1.9){
-    // respawn in the cell — items kept, monster reset
+    // respawn in the cell — items kept, monster reset, wounds healed
     G.deaths++;G.noise=0;
+    G.hp=G.hpMax;G.hurtT=0;G.healT=0;resetBlood();
     Player.reset();
     Monster.parts.jaw.rotation.x=0.08;
     Monster.parts.head.position.z=0.14;
@@ -116,4 +156,4 @@ function updateTriggers(dt){
 }
 
 refs.catchPlayer=catchPlayer;
-export{catchPlayer,updateCaught,updateTriggers};
+export{catchPlayer,updateCaught,updateTriggers,updateVitals};
