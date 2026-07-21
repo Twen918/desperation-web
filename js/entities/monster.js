@@ -25,6 +25,7 @@ function ellip(rx,ry,rz,mat,seg=10){               // squashed sphere = ribcage 
 function buildCreatureRig(mat){
   const flesh=mat.flesh,sinew=mat.sinew,eyeMat=mat.eye;
   const r=new THREE.Group();
+  r.rotation.order='YXZ';   // yaw first, so a forward lean tilts along the facing, not sideways
   const P={spine:[]};
   // gaunt, hunched frame: narrow ribcage, bony shoulders, exposed sternum
   const torso=ellip(0.18,0.42,0.135,flesh);torso.position.y=1.6;torso.rotation.x=0.26;r.add(torso);P.torso=torso;
@@ -268,39 +269,53 @@ const Monster={
     r.position.set(this.x,0,this.z);
     r.rotation.y=this.yaw;
     const chasing=this.state==='chase'||this.state==='ripping';
-    const sp=this.state==='dormant'?0:this.speed();
-    this.animT+=dt*sp*2.4;
-    const swing=(this.state==='dormant')?0:(chasing?0.62:0.38);
+    const dormant=this.state==='dormant';
+    const sp=dormant?0:this.speed();
+    this.animT+=dt*sp*1.9;
     const A=this.animT;
-    // high-frequency tremor — it can never hold still
-    const tremor=(Math.sin(A*18.7)*0.6+Math.sin(A*7.3)*0.4)*(chasing?0.05:0.028)+(this.state==='dormant'?Math.sin(A*11)*0.006:0);
-    // asymmetric limp: the LEFT leg is ruined — shallow swing, dragging hitch
-    const gaitL=Math.sin(A), gaitR=Math.sin(A+0.4);   // phase offset makes the step uneven
-    P.legL.rotation.x=gaitL*swing*0.5-0.08;
-    P.legR.rotation.x=-gaitR*swing;
-    P.shinL.rotation.x=Math.max(0,-gaitL)*0.4;        // barely bends
-    P.shinR.rotation.x=Math.max(0,gaitR)*0.8;
-    // arms: reach forward to grab while chasing; hang and sway otherwise
-    P.armL.rotation.x=(chasing?-1.75:0.15)-gaitL*swing*(chasing?0.15:0.7);
-    P.armR.rotation.x=(chasing?-1.75:0.15)+gaitR*swing*(chasing?0.15:0.85);
-    P.armL.rotation.z=(chasing?0.34:0.06)+tremor;
-    P.armR.rotation.z=(chasing?-0.34:-0.06)-tremor;
-    P.foreL.rotation.x=chasing?-0.35:-0.25;
-    P.foreR.rotation.x=chasing?-0.3:-0.25;
-    // body: limp bob (favours the good leg), a permanent list, and tremor
-    r.position.y=Math.abs(Math.sin(A))*0.05-Math.max(0,gaitL)*0.025;
-    r.rotation.x=(chasing?0.2:0.06)+tremor*0.5;
-    r.rotation.z=Math.sin(A)*0.03+0.02+tremor;
-    // head: thrust forward; tips its face down to fix its eyes on you (it's taller)
-    P.head.rotation.y=Math.sin(A*0.4)*0.2+tremor*2;
-    P.head.rotation.x=(chasing?0.05:0.14)+tremor*1.6;
-    P.head.rotation.z=tremor;
-    P.torso.rotation.z=tremor*1.2;
-    // spine: a lateral wave writhing down the back
+    const moving=sp>0.1;
+    const swing=chasing?0.72:0.5;
+    // nervous twitch — brief GATED bursts, not a constant buzz (fixes the "seizure" look)
+    const gate=Math.pow(Math.max(0,Math.sin(A*0.5+1.3)),8);
+    const jerk=gate*Math.sin(A*22)*(chasing?0.07:0.045)+(dormant?Math.sin(A*0.7)*0.012:0);
+    const sway=Math.sin(A*(dormant?0.5:1.0))*(dormant?0.02:0.0);
+    // === LEGS — alternating cycle (half a stride apart) with a limp on the LEFT ===
+    const phL=A, phR=A+Math.PI+0.3;      // ~PI apart = true alternating step; +0.3 skews it (limp)
+    const bad=0.6;                        // ruined left leg: short stride
+    P.legL.rotation.x=Math.sin(phL)*swing*bad-0.05;
+    P.legR.rotation.x=Math.sin(phR)*swing;
+    P.shinL.rotation.x=Math.max(0,Math.sin(phL-1.9))*0.5*bad;   // knee barely bends
+    P.shinR.rotation.x=Math.max(0,Math.sin(phR-1.9))*1.0;
+    // === BODY — weight bob (twice a stride), side-to-side shift, forward hunch, limp hitch
+    const bob=(0.5-Math.cos(2*A-0.5)*0.5)*0.05*(moving?1:0.25);
+    const hitch=Math.max(0,Math.sin(phL))*0.03;                 // dips onto the bad leg
+    r.position.y=bob*0.7-hitch;
+    r.rotation.x=(chasing?0.22:0.08)+jerk*0.3;
+    r.rotation.z=Math.sin(A)*0.05+0.02;                          // weight shift + a permanent list
+    if(P.torso){P.torso.rotation.y=Math.sin(A)*0.06;P.torso.rotation.z=jerk*0.4;} // shoulder counter-twist
+    // === ARMS — counter-swing to the legs; forearms LAG behind (follow-through) ===
+    if(chasing){
+      P.armL.rotation.x=-1.75-Math.sin(phL)*0.12;
+      P.armR.rotation.x=-1.75+Math.sin(phR)*0.12;
+      P.armL.rotation.z=0.34+jerk;P.armR.rotation.z=-0.34-jerk;
+      P.foreL.rotation.x=-0.4+Math.sin(phL-0.5)*0.12;
+      P.foreR.rotation.x=-0.35+Math.sin(phR-0.5)*0.12;
+    }else{
+      P.armL.rotation.x=-Math.sin(phL)*swing*0.7+0.12;           // opposite the same-side leg
+      P.armR.rotation.x=-Math.sin(phR)*swing*0.7+0.12;
+      P.armL.rotation.z=0.07+sway;P.armR.rotation.z=-0.07-sway;
+      P.foreL.rotation.x=-0.3-Math.sin(phL-0.6)*swing*0.4;       // trails the upper arm
+      P.foreR.rotation.x=-0.3-Math.sin(phR-0.6)*swing*0.4;
+    }
+    // === HEAD — slow scan + gentle bob (lags the body), rare twitch ===
+    P.head.rotation.y=Math.sin(A*0.45)*0.16+jerk*1.4;
+    P.head.rotation.x=(chasing?0.05:0.14)+Math.sin(2*A-1.2)*0.03+jerk*0.8;
+    P.head.rotation.z=sway*0.5+jerk*0.7;
+    // === SPINE — slow lateral undulation down the back (not a fast buzz) ===
     for(let i=0;i<P.spine.length;i++)
-      P.spine[i].rotation.z=Math.sin(A*3+i*0.9)*0.10+tremor;
-    // jaw
-    P.jaw.rotation.x=chasing?0.55+Math.sin(A*2)*0.18:0.08+Math.abs(tremor)*2;
+      P.spine[i].rotation.z=Math.sin(A*1.4-i*0.7)*0.06;
+    // === JAW ===
+    P.jaw.rotation.x=chasing?0.5+Math.sin(A*3)*0.14:0.08+Math.abs(jerk)*1.3;
   },
 };
 

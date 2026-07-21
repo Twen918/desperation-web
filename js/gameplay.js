@@ -364,20 +364,30 @@ function updateSilhouette(dt){
   }
   silT+=dt;
   L.alcove.intensity=(Math.random()<0.5?rand(0.6,1.6):rand(0.1,0.5));   // strobe red
-  const k=clamp(silT/3.4,0,1);
-  // hunched, low prowl dragging across behind the glass
-  silFigure.position.x=lerp(12.2,8.0,k);
-  silFigure.position.y=Math.abs(Math.sin(silT*5.5))*0.05;
-  silFigure.rotation.y=-Math.PI/2;
-  silFigure.rotation.x=0.5;                       // bent forward, crawling posture
-  const P=silParts,A=silT*5.5;
-  P.legL.rotation.x=Math.sin(A)*0.7-0.2;
-  P.legR.rotation.x=-Math.sin(A)*0.7-0.2;
-  P.armL.rotation.x=-Math.sin(A)*0.6-0.9;         // reaching hand-over-hand
-  P.armR.rotation.x=Math.sin(A)*0.6-0.9;
-  P.head.rotation.x=0.5+Math.sin(A*2.1)*0.08;
-  P.head.rotation.y=Math.sin(silT*3)*0.3;         // scanning as it passes
-  if(silT>3.6){
+  const dur=4.6;
+  const k=clamp(silT/dur,0,1);
+  // slow, deliberate prowl across the alcove, seen in profile
+  silFigure.position.x=lerp(12.5,7.5,k);
+  const A=silT*3.0,phL=A,phR=A+Math.PI+0.3;       // legs half a stride apart
+  silFigure.position.y=(0.5-Math.cos(2*A)*0.5)*0.05;
+  silFigure.rotation.y=-Math.PI/2;                 // faces its direction of travel (down the corridor)
+  silFigure.rotation.x=0.32;                        // hunched (YXZ order -> leans along the walk)
+  const P=silParts;
+  P.legL.rotation.x=Math.sin(phL)*0.6-0.05;
+  P.legR.rotation.x=Math.sin(phR)*0.6;
+  P.shinL.rotation.x=Math.max(0,Math.sin(phL-1.9))*0.7;
+  P.shinR.rotation.x=Math.max(0,Math.sin(phR-1.9))*0.7;
+  // long arms hang close and swing counter to the legs, forearms trailing — not splayed out
+  P.armL.rotation.x=0.3-Math.sin(phL)*0.28;
+  P.armR.rotation.x=0.3-Math.sin(phR)*0.28;
+  P.armL.rotation.z=0.13;P.armR.rotation.z=-0.13;
+  P.foreL.rotation.x=0.5-Math.sin(phL-0.6)*0.25;
+  P.foreR.rotation.x=0.5-Math.sin(phR-0.6)*0.25;
+  // head mostly forward, but turns to STARE at you through the glass as it passes the middle
+  const stare=Math.exp(-Math.pow((k-0.5)*4.5,2));  // bell curve peaking mid-pass
+  P.head.rotation.y=stare*1.5+Math.sin(A*0.6)*0.08;
+  P.head.rotation.x=0.18+Math.sin(2*A)*0.04;
+  if(silT>dur+0.3){
     G.silDone=true;silFigure.visible=false;L.alcove.intensity=0;
     showToast('...something is in here with you.',3);
   }
