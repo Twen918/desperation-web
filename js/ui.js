@@ -1,5 +1,5 @@
 import{$}from'./utils.js';
-import{ROOMS}from'./config.js';
+import{ROOMS,HEAL_TIME}from'./config.js';
 import{G,doors,refs}from'./state.js';
 import{AudioSys}from'./audio.js';
 
@@ -55,14 +55,14 @@ function updateHUD(dt){
     $('hearInd').style.opacity=(refs.monster.state==='investigate'||refs.monster.state==='search')?1:0;
     $('chaseInd').style.opacity=refs.monster.state==='chase'?1:0;
   }
-  // condition pips (two lives)
-  const hp=G.hp,hurt=hp<=1&&hp>0;
-  if(hp!==lastHp){
-    let pips='';
-    for(let i=0;i<G.hpMax;i++)pips+='<span class="pip'+(i<hp?' on':'')+(hurt&&i<hp?' hurt':'')+'"></span>';
-    $('health').querySelector('.pips').innerHTML=pips;
-    lastHp=hp;
-  }
+  // health bar — fills back up smoothly as a wound closes over HEAL_TIME
+  let fill=G.hp;
+  if(G.hp>0&&G.hp<G.hpMax&&G.healT>0)fill=G.hp+G.healT/HEAL_TIME;
+  const frac=Math.max(0,Math.min(1,fill/G.hpMax));
+  const hb=$('healthBar');
+  hb.style.width=(frac*100).toFixed(1)+'%';
+  hb.style.background=frac>0.75?'#5f9f6f':(frac>0.4?'#b99a3a':'#c33636');
+  $('healthBarBg').classList.toggle('warn',G.hp<=1&&G.hp>0&&G.state==='play');
   updateBlood(dt);
 }
 /* ---- blood damage vignette ---------------------------------------------
@@ -70,7 +70,7 @@ function updateHUD(dt){
    a target set by health: 0 at full HP, a breathing ~0.5 while wounded, and
    a hard punch on each hit that decays back down. Mirrors the UE build's
    bloodscreen damage effect. */
-let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0,lastHp=-1;
+let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0;
 function drawBlood(cv){
   const x=cv.getContext('2d'),w=cv.width,h=cv.height,cx=w/2,cy=h/2;
   x.clearRect(0,0,w,h);

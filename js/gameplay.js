@@ -6,7 +6,7 @@ import{scene}from'./gfx.js';
 import{M,box,cyl,addCollider,doorUnlock,setPower,L,worldRefs,power}from'./world.js';
 import{showToast,updateObjective,openNote,closeNote,drawMap,flashRed}from'./ui.js';
 import{Player}from'./entities/player.js';
-import{Monster}from'./entities/monster.js';
+import{Monster,makeSilhouetteRig}from'./entities/monster.js';
 
 /* ================= NOISE EVENTS ================= */
 function eventNoise(x,z,strength){
@@ -347,19 +347,11 @@ function updateGadgets(dt){
 }
 
 /* ================= SILHOUETTE EVENT ================= */
-let silFigure=null,silT=-1;
+let silFigure=null,silParts=null,silT=-1;
 function buildSilhouette(){
-  silFigure=new THREE.Group();
-  const torso=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.85,0.3),M.black);torso.position.y=1.35;silFigure.add(torso);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,7),M.black);head.position.y=1.95;silFigure.add(head);
-  for(const s of[-1,1]){
-    const arm=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.85,0.12),M.black);
-    arm.position.set(s*0.36,1.3,0);arm.rotation.z=s*0.12;silFigure.add(arm);
-    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.95,0.16),M.black);
-    leg.position.set(s*0.14,0.48,0);silFigure.add(leg);
-  }
+  const rig=makeSilhouetteRig();
+  silFigure=rig.root;silParts=rig.parts;
   silFigure.position.set(11.7,0,20.6);silFigure.visible=false;
-  silFigure.traverse(o=>{o.castShadow=false;});
   scene.add(silFigure);
 }
 function updateSilhouette(dt){
@@ -371,12 +363,31 @@ function updateSilhouette(dt){
     return;
   }
   silT+=dt;
-  L.alcove.intensity=(Math.random()<0.5?rand(0.6,1.6):rand(0.1,0.5));
-  const k=clamp(silT/3.2,0,1);
-  silFigure.position.x=lerp(11.7,8.3,k);
-  silFigure.position.y=Math.abs(Math.sin(silT*7))*0.04;
-  silFigure.rotation.y=-Math.PI/2;
-  if(silT>3.4){
+  L.alcove.intensity=(Math.random()<0.5?rand(0.6,1.6):rand(0.1,0.5));   // strobe red
+  const dur=4.6;
+  const k=clamp(silT/dur,0,1);
+  // slow, deliberate prowl across the alcove, seen in profile
+  silFigure.position.x=lerp(12.5,7.5,k);
+  const A=silT*3.0,phL=A,phR=A+Math.PI+0.3;       // legs half a stride apart
+  silFigure.position.y=(0.5-Math.cos(2*A)*0.5)*0.05;
+  silFigure.rotation.y=-Math.PI/2;                 // faces its direction of travel (down the corridor)
+  silFigure.rotation.x=0.32;                        // hunched (YXZ order -> leans along the walk)
+  const P=silParts;
+  P.legL.rotation.x=Math.sin(phL)*0.6-0.05;
+  P.legR.rotation.x=Math.sin(phR)*0.6;
+  P.shinL.rotation.x=Math.max(0,Math.sin(phL-1.9))*0.7;
+  P.shinR.rotation.x=Math.max(0,Math.sin(phR-1.9))*0.7;
+  // long arms hang close and swing counter to the legs, forearms trailing — not splayed out
+  P.armL.rotation.x=0.3-Math.sin(phL)*0.28;
+  P.armR.rotation.x=0.3-Math.sin(phR)*0.28;
+  P.armL.rotation.z=0.13;P.armR.rotation.z=-0.13;
+  P.foreL.rotation.x=0.5-Math.sin(phL-0.6)*0.25;
+  P.foreR.rotation.x=0.5-Math.sin(phR-0.6)*0.25;
+  // head mostly forward, but turns to STARE at you through the glass as it passes the middle
+  const stare=Math.exp(-Math.pow((k-0.5)*4.5,2));  // bell curve peaking mid-pass
+  P.head.rotation.y=stare*1.5+Math.sin(A*0.6)*0.08;
+  P.head.rotation.x=0.18+Math.sin(2*A)*0.04;
+  if(silT>dur+0.3){
     G.silDone=true;silFigure.visible=false;L.alcove.intensity=0;
     showToast('...something is in here with you.',3);
   }
