@@ -46,7 +46,18 @@
   <h1 style="font-size:30px">PAUSED</h1>
   <div class="hintline dim" style="margin:8px 0 30px">It is still out there.</div>
   <div class="start" id="btnResume">RESUME</div>
+  <div class="start" id="btnOptions" style="margin-top:14px">OPTIONS</div>
   <div class="hintline dim" style="margin-top:26px">WASD move &middot; SHIFT sprint &middot; SHIFT+C slide &middot; C crouch &middot; E interact &middot; F flashlight &middot; M map</div>
+</div>
+
+<div id="optionsScreen" class="screen">
+  <h1 style="font-size:26px">OPTIONS</h1>
+  <div class="optRow"><span class="optLbl">VOLUME</span><input type="range" id="optVolume" min="0" max="100" step="1"><span class="optVal" id="optVolumeV"></span></div>
+  <div class="optRow"><span class="optLbl">BRIGHTNESS</span><input type="range" id="optBright" min="70" max="180" step="1"><span class="optVal" id="optBrightV"></span></div>
+  <div class="optRow"><span class="optLbl">SENSITIVITY</span><input type="range" id="optSens" min="40" max="200" step="1"><span class="optVal" id="optSensV"></span></div>
+  <div class="optRow"><span class="optLbl">DIFFICULTY</span><span class="optSeg" id="optDiff"><button data-d="easy">EASY</button><button data-d="normal">NORMAL</button><button data-d="nightmare">NIGHTMARE</button></span></div>
+  <div class="hintline dim" id="optDiffHint" style="margin-top:6px">&nbsp;</div>
+  <div class="start" id="btnOptBack" style="margin-top:30px">BACK</div>
 </div>
 
 <div id="endScreen" class="screen">
@@ -54,6 +65,7 @@
   <div class="sub" style="margin-bottom:0">POWER RESTORED &mdash; BUT YOU ARE NOT OUT YET</div>
   <div class="quote">&ldquo;If anyone hears this&hellip; don&rsquo;t come here. Don&rsquo;t try to save me. Just burn it. Burn everything.&rdquo;</div>
   <div class="sig">&mdash; DR. ALDEN</div>
+  <div class="hintline dim" id="endDeaths" style="margin-bottom:26px"></div>
   <div class="hintline">The story continues in the full game:</div>
   <div class="hintline"><a href="https://chieftain22.itch.io/desperation" target="_blank">chieftain22.itch.io/desperation</a></div>
   <div class="start" id="btnRestart" style="margin-top:34px">RESTART</div>

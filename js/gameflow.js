@@ -12,12 +12,22 @@ import{Monster}from'./entities/monster.js';
 let caughtT=0;
 const caughtCam=new THREE.Vector3();   // frozen camera anchor for the death shake
 
-/* shove the monster off the player and send it searching — gives an escape window */
+/* shove the monster off the player and send it searching — gives an escape window.
+   Steps it back one increment at a time and stops at the first wall, so it can
+   never be teleported out of bounds (where it used to get stuck). */
 function shoveMonster(distm){
   let dx=Monster.x-Player.x,dz=Monster.z-Player.z;
-  const d=Math.hypot(dx,dz)||1;dx/=d;dz/=d;
-  let mx=Player.x+dx*distm,mz=Player.z+dz*distm;
-  [mx,mz]=collideCircle(mx,mz,0.42);
+  let d=Math.hypot(dx,dz);
+  if(d<0.1){dx=-Math.sin(Monster.yaw);dz=-Math.cos(Monster.yaw);d=1;} // right on top -> push it backward
+  dx/=d;dz/=d;
+  let mx=Monster.x,mz=Monster.z;
+  const steps=Math.max(1,Math.round(distm/0.25));
+  for(let i=0;i<steps;i++){
+    const nx=mx+dx*0.25,nz=mz+dz*0.25;
+    const c=collideCircle(nx,nz,0.45);
+    if((c[0]-nx)*(c[0]-nx)+(c[1]-nz)*(c[1]-nz)>0.0025)break;   // a wall pushed it back -> stop here
+    mx=c[0];mz=c[1];
+  }
   Monster.x=mx;Monster.z=mz;
   Monster.state='search';Monster.scanT=3.2;Monster.path=null;Monster.lostT=0;
   AudioSys.stopChase();
@@ -160,6 +170,8 @@ function updateTriggers(dt){
     setTimeout(()=>{
       document.exitPointerLock&&document.exitPointerLock();
       $('hud').style.display='none';
+      $('endDeaths').textContent=G.deaths===0?'It never caught you.'
+        :('It dragged you back '+G.deaths+(G.deaths===1?' time.':' times.'));
       $('endScreen').style.display='flex';
     },1500);
   }

@@ -1,6 +1,6 @@
 import{clamp,rand,dist2}from'../utils.js';
 import{NODES}from'../config.js';
-import{G,refs}from'../state.js';
+import{G,refs,Settings}from'../state.js';
 import{AudioSys}from'../audio.js';
 import{scene}from'../gfx.js';
 import{collideCircle,hasLOS,findPath,nearestNode,power,M}from'../world.js';
@@ -108,7 +108,7 @@ const Monster={
   },
   speed(){
     switch(this.state){
-      case 'chase':return power.on?5.8:5.0;
+      case 'chase':return (power.on?5.8:5.0)*Settings.mSpeed;
       case 'investigate':return 3.5;
       case 'ripping':return 5.2;
       case 'search':return 2.6;
@@ -175,7 +175,7 @@ const Monster={
         }
         // continuous hearing (deafened while the fire alarm rings)
         if(this.state!=='chase'&&G.alarmT<=0){
-          const hr=1.5+G.noise*0.16;
+          const hr=(1.5+G.noise*0.16)*Settings.mHear;
           if(!G.hidden&&pd<hr){this.state='investigate';this.scanT=0;this.goToPoint(Player.x,Player.z);}
         }
       }
