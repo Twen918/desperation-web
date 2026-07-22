@@ -44,16 +44,13 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   #noiseLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;margin-bottom:5px;text-shadow:0 1px 3px #000;}
   #noiseBarBg{height:5px;background:rgba(10,14,16,.8);border:1px solid rgba(140,155,158,.35);border-radius:2px;overflow:hidden;}
   #noiseBar{height:100%;width:0%;background:#5f9f6f;transition:background .2s;}
-  /* ---- condition / health pips ---- */
-  #health{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);
-    display:flex;align-items:center;gap:9px;}
-  #health .hpLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;text-shadow:0 1px 3px #000;}
-  #health .pips{display:flex;gap:5px;}
-  #health .pip{width:16px;height:6px;border:1px solid rgba(150,60,60,.55);border-radius:1px;
-    background:rgba(20,10,12,.6);transition:background .25s,box-shadow .25s;}
-  #health .pip.on{background:#b23a3a;box-shadow:0 0 7px rgba(200,50,50,.7);}
-  #health .pip.hurt{border-color:rgba(200,70,70,.9);animation:hpwarn 1s steps(1) infinite;}
-  @keyframes hpwarn{0%,100%{background:rgba(60,14,16,.6)}50%{background:rgba(120,26,28,.85)}}
+  /* ---- health bar (mirrors the noise bar) ---- */
+  #healthWrap{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);width:230px;text-align:center;}
+  #healthLabel{font-size:10px;letter-spacing:.42em;color:#7d8d90;margin-bottom:5px;text-shadow:0 1px 3px #000;}
+  #healthBarBg{height:5px;background:rgba(10,14,16,.8);border:1px solid rgba(140,155,158,.35);border-radius:2px;overflow:hidden;transition:box-shadow .3s;}
+  #healthBar{height:100%;width:100%;background:#5f9f6f;transition:width .3s,background .3s;}
+  #healthBarBg.warn{animation:hpwarn 1.1s ease-in-out infinite;}
+  @keyframes hpwarn{0%,100%{box-shadow:0 0 3px rgba(200,50,50,.35)}50%{box-shadow:0 0 11px rgba(225,50,50,.95)}}
   /* ---- locker view ---- */
   #lockerView{position:fixed;inset:0;z-index:8;pointer-events:none;display:none;
     background:linear-gradient(90deg,#000 0%,#000 41.5%,rgba(0,0,0,.06) 43%,rgba(0,0,0,.75) 46.5%,#000 48%,
@@ -113,8 +110,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   <div id="chaseInd">RUN</div>
   <div id="prompt"></div>
   <div id="toast"></div>
+  <div id="healthWrap"><div id="healthLabel">HEALTH</div><div id="healthBarBg"><div id="healthBar"></div></div></div>
   <div id="noiseWrap"><div id="noiseLabel">NOISE</div><div id="noiseBarBg"><div id="noiseBar"></div></div></div>
-  <div id="health"><span class="hpLabel">CONDITION</span><span class="pips"></span></div>
 </div>
 
 <div id="lockerView"></div>
@@ -168,6 +165,7 @@ const dist2=(x1,z1,x2,z2)=>{const dx=x1-x2,dz=z1-z2;return Math.sqrt(dx*dx+dz*dz
 /* ===================== js/config.js ===================== */
 /* static level data & story text */
 const H=3.2, T=0.32;
+const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
 const ROOMS={ // for the map overlay
   START:{x1:20.45,z1:26.79,x2:29.45,z2:39.19,name:'CELL'},
@@ -598,14 +596,14 @@ function updateHUD(dt){
     $('hearInd').style.opacity=(refs.monster.state==='investigate'||refs.monster.state==='search')?1:0;
     $('chaseInd').style.opacity=refs.monster.state==='chase'?1:0;
   }
-  // condition pips (two lives)
-  const hp=G.hp,hurt=hp<=1&&hp>0;
-  if(hp!==lastHp){
-    let pips='';
-    for(let i=0;i<G.hpMax;i++)pips+='<span class="pip'+(i<hp?' on':'')+(hurt&&i<hp?' hurt':'')+'"></span>';
-    $('health').querySelector('.pips').innerHTML=pips;
-    lastHp=hp;
-  }
+  // health bar — fills back up smoothly as a wound closes over HEAL_TIME
+  let fill=G.hp;
+  if(G.hp>0&&G.hp<G.hpMax&&G.healT>0)fill=G.hp+G.healT/HEAL_TIME;
+  const frac=Math.max(0,Math.min(1,fill/G.hpMax));
+  const hb=$('healthBar');
+  hb.style.width=(frac*100).toFixed(1)+'%';
+  hb.style.background=frac>0.75?'#5f9f6f':(frac>0.4?'#b99a3a':'#c33636');
+  $('healthBarBg').classList.toggle('warn',G.hp<=1&&G.hp>0&&G.state==='play');
   updateBlood(dt);
 }
 /* ---- blood damage vignette ---------------------------------------------
@@ -613,7 +611,7 @@ function updateHUD(dt){
    a target set by health: 0 at full HP, a breathing ~0.5 while wounded, and
    a hard punch on each hit that decays back down. Mirrors the UE build's
    bloodscreen damage effect. */
-let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0,lastHp=-1;
+let bloodEl=null,bloodOp=0,bloodPunch=0,bloodPhase=0;
 function drawBlood(cv){
   const x=cv.getContext('2d'),w=cv.width,h=cv.height,cx=w/2,cy=h/2;
   x.clearRect(0,0,w,h);
@@ -2236,7 +2234,6 @@ function updateSilhouette(dt){
 /* ================= CATCH / DAMAGE / JUMPSCARE ================= */
 let caughtT=0;
 const caughtCam=new THREE.Vector3();   // frozen camera anchor for the death shake
-const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
 /* shove the monster off the player and send it searching — gives an escape window */
 function shoveMonster(distm){

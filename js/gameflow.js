@@ -1,4 +1,5 @@
 import{$,rand,dist2,lerp}from'./utils.js';
+import{HEAL_TIME}from'./config.js';
 import{G,refs,doors}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{camera}from'./gfx.js';
@@ -10,7 +11,6 @@ import{Monster}from'./entities/monster.js';
 /* ================= CATCH / DAMAGE / JUMPSCARE ================= */
 let caughtT=0;
 const caughtCam=new THREE.Vector3();   // frozen camera anchor for the death shake
-const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
 /* shove the monster off the player and send it searching — gives an escape window */
 function shoveMonster(distm){

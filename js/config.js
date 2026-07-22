@@ -1,5 +1,6 @@
 /* static level data & story text */
 const H=3.2, T=0.32;
+const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
 const ROOMS={ // for the map overlay
   START:{x1:20.45,z1:26.79,x2:29.45,z2:39.19,name:'CELL'},
@@ -94,4 +95,4 @@ const NOTE_MED=
 "This place is no longer a laboratory. It is a crime scene.\n\n"+
 "                                        — Dr. Mara Ellison";
 
-export{H,T,ROOMS,NODES,EDGES,ADJ,NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED};
+export{H,T,HEAL_TIME,ROOMS,NODES,EDGES,ADJ,NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED};
