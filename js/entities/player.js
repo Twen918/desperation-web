@@ -2,7 +2,7 @@ import{clamp,lerp}from'../utils.js';
 import{G,keys,refs,addNoise}from'../state.js';
 import{AudioSys}from'../audio.js';
 import{camera}from'../gfx.js';
-import{collideCircle,L}from'../world.js';
+import{collideCircle,L,surfaceAt}from'../world.js';
 
 /* ================= PLAYER ================= */
 const Player={
@@ -84,7 +84,7 @@ const Player={
       const stride=sprinting?2.6:(this.crouched?1.7:2.1);
       if(this.stepAcc>stride){
         this.stepAcc=0;
-        AudioSys.footstep(sprinting?1:(this.crouched?0.1:0.35),speed/6);
+        AudioSys.footstep(sprinting?1:(this.crouched?0.1:0.35),speed/6,surfaceAt(this.x,this.z));
       }
     }
     // --- camera ---

@@ -16,8 +16,8 @@ function eventNoise(x,z,strength){
 }
 
 /* ================= INTERACTABLES ================= */
-function addInteract(x,z,y,label,cond,cb){
-  const it={x,z,y,label,cond,cb,active:true};
+function addInteract(x,z,y,label,cond,cb,mesh){
+  const it={x,z,y,label,cond,cb,active:true,mesh:mesh||null};
   interactables.push(it);return it;
 }
 let promptIt=null;
@@ -39,13 +39,23 @@ function updatePrompt(){
     const d=dist2(Player.x,Player.z,s.ex,s.ez);
     if(d<1.3&&d<bd){bd=d;best=null;bestSpot=s;}
   }
+  let hot=null;
   if(bestSpot){
     promptIt={spot:bestSpot};
     $('prompt').innerHTML='<span class="k">E</span>HIDE IN LOCKER';
   }else if(best){
     promptIt={it:best};
     $('prompt').innerHTML='<span class="k">E</span>'+best.label;
+    hot=best.mesh;
   }else $('prompt').innerHTML='';
+  setHighlight(hot);
+  $('crosshair').classList.toggle('hot',!!promptIt);
+}
+// gently pulse the targeted pickup so you can spot what you're about to grab
+let hlMesh=null,hlBase=1;
+function setHighlight(mesh){
+  if(mesh!==hlMesh){ if(hlMesh)hlMesh.scale.setScalar(hlBase); hlMesh=mesh||null; if(hlMesh)hlBase=hlMesh.scale.x; }
+  if(hlMesh)hlMesh.scale.setScalar(hlBase*(1+0.05*(0.5+0.5*Math.sin(performance.now()*0.006))));
 }
 function onKeyPress(code){
   if(G.state!=='play'&&G.state!=='intro')return;
@@ -106,7 +116,7 @@ function makeNote(x,z,y,rz,text,label){
   const note=new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.4),M.paper);
   note.rotation.x=-Math.PI/2;note.rotation.z=rz;
   note.position.set(x,y,z);scene.add(note);
-  addInteract(x,z,y,label||'READ NOTE',()=>true,()=>openNote(text));
+  addInteract(x,z,y,label||'READ NOTE',()=>true,()=>openNote(text),note);
 }
 function buildGameplayObjects(){
   // ---- start room desk: facility map + Alden's first entry ----
@@ -116,7 +126,7 @@ function buildGameplayObjects(){
   addInteract(27.3,30.1,0.97,'TAKE FACILITY MAP',()=>!G.hasMap,()=>{
     G.hasMap=true;mapBoard.visible=false;
     AudioSys.pickup();showToast('Facility map acquired.  [ M ] to view.',3);
-  });
+  },mapBoard);
   makeNote(28.5,30.4,0.97,0.5,NOTE_START,'READ JOURNAL');
   // ---- RED keycard in RECORDS (real BP_Key3 spot) ----
   const keycardMesh=box(0.17,0.02,0.11,M.keycard,-15.2,0.99,-1.85,0.4);
@@ -125,7 +135,7 @@ function buildGameplayObjects(){
     AudioSys.pickup();showToast('RED keycard — SPECIMEN ROOM access.',2.6);
     doorUnlock(doors.find(d=>d.id==='spec'));
     updateObjective();
-  });
+  },keycardMesh);
   // ---- SPECIMEN: fuse + memo + speed serum (real BP_Syringe_Speed room) ----
   const fuseMesh=cyl(0.055,0.055,0.24,M.fuse,10.4,1.03,6.9,10);
   fuseMesh.rotation.z=Math.PI/2;
@@ -133,7 +143,7 @@ function buildGameplayObjects(){
     G.hasFuse=true;fuseMesh.visible=false;
     AudioSys.pickup();showToast('Generator fuse acquired.',2.6);
     updateObjective();
-  });
+  },fuseMesh);
   makeNote(11.8,6.95,1.0,0.4,NOTE_SPECIMEN,'READ MEMO');
   box(0.7,0.06,0.3,M.darkMetal,13.6,1.15,-0.2,0); // wall shelf
   const spdSyr=makeSyringe(13.6,-0.2,1.25,M.syrFluid);
@@ -141,7 +151,7 @@ function buildGameplayObjects(){
     G.syringe=true;spdSyr.visible=false;
     AudioSys.inject();flashRed(0.45,900);
     showToast('SPEED SERUM: +40% speed / +50% noise.\nYour heart is pounding.',3.6);
-  });
+  },spdSyr);
   // ---- REGEN serum on the lab north bench (real BP_Syringe_Regen2) ----
   const regenMat=new THREE.MeshStandardMaterial({color:0x0d5a2a,emissive:0x1a7a3a,emissiveIntensity:0.9});
   const regSyr=makeSyringe(-5.2,-9.0,1.02,regenMat);
@@ -149,7 +159,7 @@ function buildGameplayObjects(){
     G.regen=true;regSyr.visible=false;
     AudioSys.inject();flashRed(0.35,900);
     showToast('REGEN SERUM: you will survive one attack.\nYour skin crawls as it knits.',3.8);
-  });
+  },regSyr);
   // ---- GENERATOR 1: switchboard on the east wall (real BP_Switcboard) ----
   box(0.14,1.9,3.2,M.metal,11.05,1.1,-16.4,0);          // switchboard body
   box(0.1,0.42,0.34,M.darkMetal,10.97,1.15,-12.9,0);    // fuse box
@@ -197,7 +207,7 @@ function buildGameplayObjects(){
     AudioSys.pickup();showToast('BLUE keycard — NORTH EXIT access.',2.6);
     if(power.on)doorUnlock(doors.find(d=>d.id==='exit'));
     updateObjective();
-  });
+  },key2Mesh);
   // ---- DORM: Mara's email + a kept photograph ----
   makeNote(9.5,-65.1,0.965,0.3,NOTE_DORM,'READ EMAIL');
   { const frame=box(0.16,0.2,0.02,M.darkMetal,15.88,0.82,-60.6,-0.4);
@@ -207,7 +217,7 @@ function buildGameplayObjects(){
     addInteract(15.88,-60.6,0.82,'LOOK AT PHOTOGRAPH',()=>true,()=>{
       AudioSys.pickup();
       showToast('A wedding photo. The glass is cracked.\nSomeone kept it beside their bunk until the end.',4.5);
-    });
+    },frame);
   }
   // ---- MEDICAL: noise serum (real BP_Syringe_Noise) + resignation letter ----
   const noiseMat=new THREE.MeshStandardMaterial({color:0x5a5a10,emissive:0x6a6a1a,emissiveIntensity:0.8});
@@ -216,7 +226,7 @@ function buildGameplayObjects(){
     G.noiseBuff=true;nzSyr.visible=false;
     AudioSys.inject();flashRed(0.3,800);
     showToast('SUPPRESSOR SERUM: -35% noise.\nYour footsteps sound... muffled.',3.6);
-  });
+  },nzSyr);
   makeNote(-71.9,-86.0,0.965,-0.4,NOTE_MED,'READ LETTER');
   // ---- searchable supply crates (loud, but they hold the rest of the story) ----
   function searchable(x,z,text,label){
@@ -239,7 +249,7 @@ function buildGameplayObjects(){
     AudioSys.inject();flashRed(0.3,800);
     L.amb.intensity+=0.12;L.hemi.intensity+=0.06;
     showToast('VISION SERUM: eyes adjust to the dark, it shows on your map.\n-10% speed.',4);
-  });
+  },visSyr);
   // ---- DORM RADIO: a loud decoy you can lure it with ----
   const radio=box(0.34,0.16,0.14,M.darkMetal,8.9,1.03,-65.35,0.2);
   const ant=cyl(0.006,0.006,0.32,M.metal,8.76,1.24,-65.4,6);ant.rotation.z=0.5;ant.castShadow=false;

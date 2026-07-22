@@ -1,6 +1,6 @@
 import{clamp,lerp,rand,dist2}from'./utils.js';
 import{H,T,ROOMS,NODES,ADJ}from'./config.js';
-import{colliders,doors,hideSpots,flickerLights,preLights,postLights,powerScreens}from'./state.js';
+import{colliders,doors,hideSpots,flickerLights,preLights,postLights,powerScreens,Settings}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{scene,renderer,maxAniso}from'./gfx.js';
 import{showToast}from'./ui.js';
@@ -178,6 +178,44 @@ const M={
   screenOn:new THREE.MeshStandardMaterial({color:0x0a1a14,emissive:0x2a8858,emissiveIntensity:0.9,roughness:0.3}),
   exitSign:new THREE.MeshStandardMaterial({color:0x0a2a12,emissive:0x2aff66,emissiveIntensity:0.8}),
 };
+
+/* ---- brightness: a single exposure knob the game re-applies over its own lighting ---- */
+let exposureBase=1.12;
+function setExposureBase(v){exposureBase=v;renderer.toneMappingExposure=v*Settings.brightness;}
+function applyBrightness(){renderer.toneMappingExposure=exposureBase*Settings.brightness;}
+
+/* ---- floor surface lookup (blood pools squelch) ---- */
+const wetZones=[{x:6.6,z:7.2,r:1.35},{x:11,z:0.5,r:1.65}];
+function surfaceAt(x,z){for(const w of wetZones){const dx=x-w.x,dz=z-w.z;if(dx*dx+dz*dz<w.r*w.r)return 'wet';}return 'tile';}
+
+/* ---- floating dust motes that catch the flashlight ---- */
+let dust=null,dustPos=null;
+function buildDust(){
+  const N=170,g=new THREE.BufferGeometry();
+  dustPos=new Float32Array(N*3);
+  for(let i=0;i<N*3;i++)dustPos[i]=(Math.random()-0.5)*6;
+  g.setAttribute('position',new THREE.BufferAttribute(dustPos,3));
+  const spr=makeTex(16,16,(x)=>{const gr=x.createRadialGradient(8,8,0,8,8,8);
+    gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.5,'rgba(255,255,255,0.5)');gr.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=gr;x.fillRect(0,0,16,16);},1,1);
+  const m=new THREE.PointsMaterial({size:0.035,map:spr,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,color:0xb9c0bc});
+  dust=new THREE.Points(g,m);dust.frustumCulled=false;scene.add(dust);
+}
+function updateDust(dt,cx,cy,cz,flashOn){
+  if(!dust)return;
+  const N=dustPos.length/3,t=performance.now()*0.00018;
+  for(let i=0;i<N;i++){const ix=i*3;
+    dustPos[ix]  +=Math.sin(t+i)*0.0007;
+    dustPos[ix+1]+=-0.04*dt+Math.sin(t*1.3+i*1.7)*0.0004;
+    dustPos[ix+2]+=Math.cos(t+i*1.3)*0.0007;
+    if(dustPos[ix]-cx>3)dustPos[ix]-=6;else if(dustPos[ix]-cx<-3)dustPos[ix]+=6;
+    if(dustPos[ix+1]-cy>2.2)dustPos[ix+1]-=4.4;else if(dustPos[ix+1]-cy<-2.2)dustPos[ix+1]+=4.4;
+    if(dustPos[ix+2]-cz>3)dustPos[ix+2]-=6;else if(dustPos[ix+2]-cz<-3)dustPos[ix+2]+=6;
+  }
+  dust.geometry.attributes.position.needsUpdate=true;
+  const target=flashOn?0.5:0.24;
+  dust.material.opacity+=(target-dust.material.opacity)*Math.min(1,dt*3);
+}
 
 /* registries live in state.js; H/T in config.js */
 
@@ -592,7 +630,7 @@ function setPower(){
   setTimeout(()=>{
     scene.fog.density=0.038;
     L.amb.intensity=0.62;L.hemi.intensity=0.3;
-    renderer.toneMappingExposure=1.2;
+    setExposureBase(1.2);
     for(const s of powerScreens)s.material=M.screenOn;
     // one fixture in the west wing never recovered — it flickers
     const broken=postLights[7];
@@ -688,4 +726,5 @@ function nearestNode(x,z){
   return best;
 }
 
-export{M,uvScale,box,cyl,solid,wall,floorPatch,addCollider,makeDoor,doorUnlock,updateDoors,makeLocker,bed,table,cabinet,crate,shelfRow,tank,lamp,pointL,machineIsland,buildLevel,worldRefs,L,buildLights,power,setPower,updateFlicker,collideCircle,segHitsAABB,hasLOS,doorOpenFor,findPath,nearestNode};
+export{M,uvScale,box,cyl,solid,wall,floorPatch,addCollider,makeDoor,doorUnlock,updateDoors,makeLocker,bed,table,cabinet,crate,shelfRow,tank,lamp,pointL,machineIsland,buildLevel,worldRefs,L,buildLights,power,setPower,updateFlicker,collideCircle,segHitsAABB,hasLOS,doorOpenFor,findPath,nearestNode,
+  applyBrightness,surfaceAt,buildDust,updateDust};

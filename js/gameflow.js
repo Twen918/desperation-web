@@ -160,6 +160,8 @@ function updateTriggers(dt){
     setTimeout(()=>{
       document.exitPointerLock&&document.exitPointerLock();
       $('hud').style.display='none';
+      $('endDeaths').textContent=G.deaths===0?'It never caught you.'
+        :('It dragged you back '+G.deaths+(G.deaths===1?' time.':' times.'));
       $('endScreen').style.display='flex';
     },1500);
   }

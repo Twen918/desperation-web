@@ -23,4 +23,25 @@ const refs={player:null,monster:null,catchPlayer:null};
 
 function addNoise(v){ G.noise=clamp(G.noise+v,0,100); }
 
-export{G,keys,colliders,doors,hideSpots,interactables,flickerLights,preLights,postLights,powerScreens,refs,addNoise};
+/* ---- player-facing settings (persisted to localStorage) ---- */
+const Settings={
+  volume:0.85, brightness:1.0, sensitivity:1.0, difficulty:'normal',
+  mSpeed:1.0, mHear:1.0,   // monster speed / hearing multipliers, derived from difficulty
+};
+const DIFF={easy:{s:0.9,h:0.72},normal:{s:1.0,h:1.0},nightmare:{s:1.12,h:1.4}};
+function applyDifficulty(){const d=DIFF[Settings.difficulty]||DIFF.normal;Settings.mSpeed=d.s;Settings.mHear=d.h;}
+function loadSettings(){
+  try{const s=JSON.parse(localStorage.getItem('desp_settings')||'{}');
+    for(const k of['volume','brightness','sensitivity','difficulty'])if(k in s)Settings[k]=s[k];
+  }catch(e){}
+  applyDifficulty();
+}
+function saveSettings(){
+  try{localStorage.setItem('desp_settings',JSON.stringify({
+    volume:Settings.volume,brightness:Settings.brightness,
+    sensitivity:Settings.sensitivity,difficulty:Settings.difficulty}));}catch(e){}
+}
+loadSettings();
+
+export{G,keys,colliders,doors,hideSpots,interactables,flickerLights,preLights,postLights,powerScreens,refs,addNoise,
+  Settings,loadSettings,saveSettings,applyDifficulty};

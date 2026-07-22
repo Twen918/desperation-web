@@ -23,7 +23,9 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   /* ---- HUD ---- */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;}
   #crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;
-    background:rgba(200,210,212,.55);border-radius:50%;}
+    background:rgba(200,210,212,.55);border-radius:50%;transition:all .12s;}
+  #crosshair.hot{width:10px;height:10px;margin:-5px 0 0 -5px;background:rgba(230,200,120,.12);
+    border:1.5px solid rgba(232,202,120,.9);box-shadow:0 0 8px rgba(232,202,120,.5);}
   #objective{position:absolute;top:22px;left:26px;max-width:420px;font-size:13px;letter-spacing:.08em;
     color:#aab8ba;text-shadow:0 1px 3px #000;line-height:1.5;}
   #objective b{color:#e0e8e8;font-weight:normal;}
@@ -91,6 +93,22 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   #endScreen h1{font-size:40px;}
   #endScreen .quote{max-width:560px;font-size:13.5px;line-height:2;color:#b9c4c6;font-style:italic;margin:26px 0 8px;}
   #endScreen .sig{color:#8b989b;font-size:12px;letter-spacing:.2em;margin-bottom:36px;}
+  /* ---- options menu ---- */
+  #optionsScreen{display:none;}
+  .optRow{display:flex;align-items:center;gap:16px;width:452px;max-width:88vw;margin:9px 0;
+    font-size:12px;letter-spacing:.14em;}
+  .optLbl{width:132px;text-align:right;color:#93a3a6;}
+  .optVal{width:54px;text-align:left;color:#cdd6d6;}
+  .optRow input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+    background:rgba(140,155,158,.35);outline:none;cursor:pointer;}
+  .optRow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:#c96f73;box-shadow:0 0 6px rgba(200,80,84,.6);cursor:pointer;}
+  .optRow input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:#c96f73;cursor:pointer;}
+  .optSeg{flex:1;display:flex;gap:6px;}
+  .optSeg button{flex:1;font:inherit;font-size:10px;letter-spacing:.12em;color:#93a3a6;padding:7px 0;cursor:pointer;
+    background:rgba(12,18,22,.6);border:1px solid rgba(140,155,158,.35);border-radius:2px;transition:all .15s;}
+  .optSeg button:hover{border-color:#a4464b;}
+  .optSeg button.on{background:rgba(120,20,24,.35);border-color:#c96f73;color:#e0e8e8;}
   #mobileWarn{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
     background:#04060a;font-size:15px;letter-spacing:.12em;color:#c8d2d4;text-align:center;padding:0 30px;}
   ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#3a4a4e;}
@@ -136,7 +154,18 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   <h1 style="font-size:30px">PAUSED</h1>
   <div class="hintline dim" style="margin:8px 0 30px">It is still out there.</div>
   <div class="start" id="btnResume">RESUME</div>
+  <div class="start" id="btnOptions" style="margin-top:14px">OPTIONS</div>
   <div class="hintline dim" style="margin-top:26px">WASD move &middot; SHIFT sprint &middot; SHIFT+C slide &middot; C crouch &middot; E interact &middot; F flashlight &middot; M map</div>
+</div>
+
+<div id="optionsScreen" class="screen">
+  <h1 style="font-size:26px">OPTIONS</h1>
+  <div class="optRow"><span class="optLbl">VOLUME</span><input type="range" id="optVolume" min="0" max="100" step="1"><span class="optVal" id="optVolumeV"></span></div>
+  <div class="optRow"><span class="optLbl">BRIGHTNESS</span><input type="range" id="optBright" min="70" max="180" step="1"><span class="optVal" id="optBrightV"></span></div>
+  <div class="optRow"><span class="optLbl">SENSITIVITY</span><input type="range" id="optSens" min="40" max="200" step="1"><span class="optVal" id="optSensV"></span></div>
+  <div class="optRow"><span class="optLbl">DIFFICULTY</span><span class="optSeg" id="optDiff"><button data-d="easy">EASY</button><button data-d="normal">NORMAL</button><button data-d="nightmare">NIGHTMARE</button></span></div>
+  <div class="hintline dim" id="optDiffHint" style="margin-top:6px">&nbsp;</div>
+  <div class="start" id="btnOptBack" style="margin-top:30px">BACK</div>
 </div>
 
 <div id="endScreen" class="screen">
@@ -144,6 +173,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   <div class="sub" style="margin-bottom:0">POWER RESTORED &mdash; BUT YOU ARE NOT OUT YET</div>
   <div class="quote">&ldquo;If anyone hears this&hellip; don&rsquo;t come here. Don&rsquo;t try to save me. Just burn it. Burn everything.&rdquo;</div>
   <div class="sig">&mdash; DR. ALDEN</div>
+  <div class="hintline dim" id="endDeaths" style="margin-bottom:26px"></div>
   <div class="hintline">The story continues in the full game:</div>
   <div class="hintline"><a href="https://chieftain22.itch.io/desperation" target="_blank">chieftain22.itch.io/desperation</a></div>
   <div class="start" id="btnRestart" style="margin-top:34px">RESTART</div>
@@ -285,17 +315,37 @@ const refs={player:null,monster:null,catchPlayer:null};
 
 function addNoise(v){ G.noise=clamp(G.noise+v,0,100); }
 
+/* ---- player-facing settings (persisted to localStorage) ---- */
+const Settings={
+  volume:0.85, brightness:1.0, sensitivity:1.0, difficulty:'normal',
+  mSpeed:1.0, mHear:1.0,   // monster speed / hearing multipliers, derived from difficulty
+};
+const DIFF={easy:{s:0.9,h:0.72},normal:{s:1.0,h:1.0},nightmare:{s:1.12,h:1.4}};
+function applyDifficulty(){const d=DIFF[Settings.difficulty]||DIFF.normal;Settings.mSpeed=d.s;Settings.mHear=d.h;}
+function loadSettings(){
+  try{const s=JSON.parse(localStorage.getItem('desp_settings')||'{}');
+    for(const k of['volume','brightness','sensitivity','difficulty'])if(k in s)Settings[k]=s[k];
+  }catch(e){}
+  applyDifficulty();
+}
+function saveSettings(){
+  try{localStorage.setItem('desp_settings',JSON.stringify({
+    volume:Settings.volume,brightness:Settings.brightness,
+    sensitivity:Settings.sensitivity,difficulty:Settings.difficulty}));}catch(e){}
+}
+loadSettings();
+
 /* ===================== js/audio.js ===================== */
 /* ================= AUDIO (procedural, WebAudio) ================= */
 const AudioSys=(()=>{
-  let ctx=null,master=null,inited=false;
+  let ctx=null,master=null,inited=false,volTarget=0.85;
   let noiseBuf=null,creakT=5,growlT=4,heartT=0,kickT=0,chaseG=null,humL=null;
   function init(){
     if(inited)return; inited=true;
     ctx=new (window.AudioContext||window.webkitAudioContext)();
     const comp=ctx.createDynamicsCompressor();
     comp.threshold.value=-20;comp.knee.value=18;comp.ratio.value=9;
-    master=ctx.createGain();master.gain.value=0.85;
+    master=ctx.createGain();master.gain.value=volTarget;
     master.connect(comp);comp.connect(ctx.destination);
     noiseBuf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
     const d=noiseBuf.getChannelData(0);
@@ -348,10 +398,21 @@ const AudioSys=(()=>{
     gn.gain.linearRampToValueAtTime(0,now()+d);
     s.start();s.stop(now()+d+0.05);
   }
-  function footstep(loud,speedK){
+  function setVolume(v){ volTarget=v; if(master)master.gain.value=v; }
+  function footstep(loud,speedK,surface){
     if(!inited)return;
-    nHit(0.05+loud*0.1,0.09,'lowpass',420+speedK*260,140,1);
-    tone('sine',88,42,0.05+loud*0.09,0.1);
+    const p=0.85+Math.random()*0.3;   // per-step pitch variation, kills the monotony
+    if(surface==='wet'){              // through a blood pool — a wet squelch
+      nHit(0.06+loud*0.09,0.15,'lowpass',(300+speedK*150)*p,90,1);
+      tone('sine',66,32,0.05+loud*0.07,0.13);
+      nHit(0.05+loud*0.06,0.1,'bandpass',720,420,4);
+    }else if(surface==='metal'){      // grating — a dull metallic ring
+      nHit(0.05+loud*0.1,0.1,'bandpass',(1400+speedK*300)*p,700,5);
+      tone('square',150*p,70,0.04+loud*0.06,0.09);
+    }else{                            // tile / concrete
+      nHit(0.05+loud*0.1,0.09,'lowpass',(420+speedK*260)*p,140,1);
+      tone('sine',88*p,42,0.05+loud*0.09,0.1);
+    }
   }
   function monsterStep(vol){
     if(!inited)return;
@@ -517,7 +578,7 @@ const AudioSys=(()=>{
       if(kickT<=0){kickT=0.43;tone('sine',88,40,0.3,0.14);}
     }
   }
-  return {init,footstep,monsterStep,growl,sting,scream,clank,relay,doorSlide,lockerClunk,
+  return {init,setVolume,footstep,monsterStep,growl,sting,scream,clank,relay,doorSlide,lockerClunk,
           pickup,beepErr,beepOk,slideNoise,land,inject,powerOn,startChase,stopChase,update,
           radioStart,radioStop,radioGain,alarmStart,alarmStop,gurgle,drawer,canDrop,
           get ready(){return inited;}};
@@ -894,6 +955,44 @@ const M={
   screenOn:new THREE.MeshStandardMaterial({color:0x0a1a14,emissive:0x2a8858,emissiveIntensity:0.9,roughness:0.3}),
   exitSign:new THREE.MeshStandardMaterial({color:0x0a2a12,emissive:0x2aff66,emissiveIntensity:0.8}),
 };
+
+/* ---- brightness: a single exposure knob the game re-applies over its own lighting ---- */
+let exposureBase=1.12;
+function setExposureBase(v){exposureBase=v;renderer.toneMappingExposure=v*Settings.brightness;}
+function applyBrightness(){renderer.toneMappingExposure=exposureBase*Settings.brightness;}
+
+/* ---- floor surface lookup (blood pools squelch) ---- */
+const wetZones=[{x:6.6,z:7.2,r:1.35},{x:11,z:0.5,r:1.65}];
+function surfaceAt(x,z){for(const w of wetZones){const dx=x-w.x,dz=z-w.z;if(dx*dx+dz*dz<w.r*w.r)return 'wet';}return 'tile';}
+
+/* ---- floating dust motes that catch the flashlight ---- */
+let dust=null,dustPos=null;
+function buildDust(){
+  const N=170,g=new THREE.BufferGeometry();
+  dustPos=new Float32Array(N*3);
+  for(let i=0;i<N*3;i++)dustPos[i]=(Math.random()-0.5)*6;
+  g.setAttribute('position',new THREE.BufferAttribute(dustPos,3));
+  const spr=makeTex(16,16,(x)=>{const gr=x.createRadialGradient(8,8,0,8,8,8);
+    gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.5,'rgba(255,255,255,0.5)');gr.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=gr;x.fillRect(0,0,16,16);},1,1);
+  const m=new THREE.PointsMaterial({size:0.035,map:spr,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,color:0xb9c0bc});
+  dust=new THREE.Points(g,m);dust.frustumCulled=false;scene.add(dust);
+}
+function updateDust(dt,cx,cy,cz,flashOn){
+  if(!dust)return;
+  const N=dustPos.length/3,t=performance.now()*0.00018;
+  for(let i=0;i<N;i++){const ix=i*3;
+    dustPos[ix]  +=Math.sin(t+i)*0.0007;
+    dustPos[ix+1]+=-0.04*dt+Math.sin(t*1.3+i*1.7)*0.0004;
+    dustPos[ix+2]+=Math.cos(t+i*1.3)*0.0007;
+    if(dustPos[ix]-cx>3)dustPos[ix]-=6;else if(dustPos[ix]-cx<-3)dustPos[ix]+=6;
+    if(dustPos[ix+1]-cy>2.2)dustPos[ix+1]-=4.4;else if(dustPos[ix+1]-cy<-2.2)dustPos[ix+1]+=4.4;
+    if(dustPos[ix+2]-cz>3)dustPos[ix+2]-=6;else if(dustPos[ix+2]-cz<-3)dustPos[ix+2]+=6;
+  }
+  dust.geometry.attributes.position.needsUpdate=true;
+  const target=flashOn?0.5:0.24;
+  dust.material.opacity+=(target-dust.material.opacity)*Math.min(1,dt*3);
+}
 
 /* registries live in state.js; H/T in config.js */
 
@@ -1308,7 +1407,7 @@ function setPower(){
   setTimeout(()=>{
     scene.fog.density=0.038;
     L.amb.intensity=0.62;L.hemi.intensity=0.3;
-    renderer.toneMappingExposure=1.2;
+    setExposureBase(1.2);
     for(const s of powerScreens)s.material=M.screenOn;
     // one fixture in the west wing never recovered — it flickers
     const broken=postLights[7];
@@ -1485,7 +1584,7 @@ const Player={
       const stride=sprinting?2.6:(this.crouched?1.7:2.1);
       if(this.stepAcc>stride){
         this.stepAcc=0;
-        AudioSys.footstep(sprinting?1:(this.crouched?0.1:0.35),speed/6);
+        AudioSys.footstep(sprinting?1:(this.crouched?0.1:0.35),speed/6,surfaceAt(this.x,this.z));
       }
     }
     // --- camera ---
@@ -1631,7 +1730,7 @@ const Monster={
   },
   speed(){
     switch(this.state){
-      case 'chase':return power.on?5.8:5.0;
+      case 'chase':return (power.on?5.8:5.0)*Settings.mSpeed;
       case 'investigate':return 3.5;
       case 'ripping':return 5.2;
       case 'search':return 2.6;
@@ -1698,7 +1797,7 @@ const Monster={
         }
         // continuous hearing (deafened while the fire alarm rings)
         if(this.state!=='chase'&&G.alarmT<=0){
-          const hr=1.5+G.noise*0.16;
+          const hr=(1.5+G.noise*0.16)*Settings.mHear;
           if(!G.hidden&&pd<hr){this.state='investigate';this.scanT=0;this.goToPoint(Player.x,Player.z);}
         }
       }
@@ -1853,8 +1952,8 @@ function eventNoise(x,z,strength){
 }
 
 /* ================= INTERACTABLES ================= */
-function addInteract(x,z,y,label,cond,cb){
-  const it={x,z,y,label,cond,cb,active:true};
+function addInteract(x,z,y,label,cond,cb,mesh){
+  const it={x,z,y,label,cond,cb,active:true,mesh:mesh||null};
   interactables.push(it);return it;
 }
 let promptIt=null;
@@ -1876,13 +1975,23 @@ function updatePrompt(){
     const d=dist2(Player.x,Player.z,s.ex,s.ez);
     if(d<1.3&&d<bd){bd=d;best=null;bestSpot=s;}
   }
+  let hot=null;
   if(bestSpot){
     promptIt={spot:bestSpot};
     $('prompt').innerHTML='<span class="k">E</span>HIDE IN LOCKER';
   }else if(best){
     promptIt={it:best};
     $('prompt').innerHTML='<span class="k">E</span>'+best.label;
+    hot=best.mesh;
   }else $('prompt').innerHTML='';
+  setHighlight(hot);
+  $('crosshair').classList.toggle('hot',!!promptIt);
+}
+// gently pulse the targeted pickup so you can spot what you're about to grab
+let hlMesh=null,hlBase=1;
+function setHighlight(mesh){
+  if(mesh!==hlMesh){ if(hlMesh)hlMesh.scale.setScalar(hlBase); hlMesh=mesh||null; if(hlMesh)hlBase=hlMesh.scale.x; }
+  if(hlMesh)hlMesh.scale.setScalar(hlBase*(1+0.05*(0.5+0.5*Math.sin(performance.now()*0.006))));
 }
 function onKeyPress(code){
   if(G.state!=='play'&&G.state!=='intro')return;
@@ -1943,7 +2052,7 @@ function makeNote(x,z,y,rz,text,label){
   const note=new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.4),M.paper);
   note.rotation.x=-Math.PI/2;note.rotation.z=rz;
   note.position.set(x,y,z);scene.add(note);
-  addInteract(x,z,y,label||'READ NOTE',()=>true,()=>openNote(text));
+  addInteract(x,z,y,label||'READ NOTE',()=>true,()=>openNote(text),note);
 }
 function buildGameplayObjects(){
   // ---- start room desk: facility map + Alden's first entry ----
@@ -1953,7 +2062,7 @@ function buildGameplayObjects(){
   addInteract(27.3,30.1,0.97,'TAKE FACILITY MAP',()=>!G.hasMap,()=>{
     G.hasMap=true;mapBoard.visible=false;
     AudioSys.pickup();showToast('Facility map acquired.  [ M ] to view.',3);
-  });
+  },mapBoard);
   makeNote(28.5,30.4,0.97,0.5,NOTE_START,'READ JOURNAL');
   // ---- RED keycard in RECORDS (real BP_Key3 spot) ----
   const keycardMesh=box(0.17,0.02,0.11,M.keycard,-15.2,0.99,-1.85,0.4);
@@ -1962,7 +2071,7 @@ function buildGameplayObjects(){
     AudioSys.pickup();showToast('RED keycard — SPECIMEN ROOM access.',2.6);
     doorUnlock(doors.find(d=>d.id==='spec'));
     updateObjective();
-  });
+  },keycardMesh);
   // ---- SPECIMEN: fuse + memo + speed serum (real BP_Syringe_Speed room) ----
   const fuseMesh=cyl(0.055,0.055,0.24,M.fuse,10.4,1.03,6.9,10);
   fuseMesh.rotation.z=Math.PI/2;
@@ -1970,7 +2079,7 @@ function buildGameplayObjects(){
     G.hasFuse=true;fuseMesh.visible=false;
     AudioSys.pickup();showToast('Generator fuse acquired.',2.6);
     updateObjective();
-  });
+  },fuseMesh);
   makeNote(11.8,6.95,1.0,0.4,NOTE_SPECIMEN,'READ MEMO');
   box(0.7,0.06,0.3,M.darkMetal,13.6,1.15,-0.2,0); // wall shelf
   const spdSyr=makeSyringe(13.6,-0.2,1.25,M.syrFluid);
@@ -1978,7 +2087,7 @@ function buildGameplayObjects(){
     G.syringe=true;spdSyr.visible=false;
     AudioSys.inject();flashRed(0.45,900);
     showToast('SPEED SERUM: +40% speed / +50% noise.\nYour heart is pounding.',3.6);
-  });
+  },spdSyr);
   // ---- REGEN serum on the lab north bench (real BP_Syringe_Regen2) ----
   const regenMat=new THREE.MeshStandardMaterial({color:0x0d5a2a,emissive:0x1a7a3a,emissiveIntensity:0.9});
   const regSyr=makeSyringe(-5.2,-9.0,1.02,regenMat);
@@ -1986,7 +2095,7 @@ function buildGameplayObjects(){
     G.regen=true;regSyr.visible=false;
     AudioSys.inject();flashRed(0.35,900);
     showToast('REGEN SERUM: you will survive one attack.\nYour skin crawls as it knits.',3.8);
-  });
+  },regSyr);
   // ---- GENERATOR 1: switchboard on the east wall (real BP_Switcboard) ----
   box(0.14,1.9,3.2,M.metal,11.05,1.1,-16.4,0);          // switchboard body
   box(0.1,0.42,0.34,M.darkMetal,10.97,1.15,-12.9,0);    // fuse box
@@ -2034,7 +2143,7 @@ function buildGameplayObjects(){
     AudioSys.pickup();showToast('BLUE keycard — NORTH EXIT access.',2.6);
     if(power.on)doorUnlock(doors.find(d=>d.id==='exit'));
     updateObjective();
-  });
+  },key2Mesh);
   // ---- DORM: Mara's email + a kept photograph ----
   makeNote(9.5,-65.1,0.965,0.3,NOTE_DORM,'READ EMAIL');
   { const frame=box(0.16,0.2,0.02,M.darkMetal,15.88,0.82,-60.6,-0.4);
@@ -2044,7 +2153,7 @@ function buildGameplayObjects(){
     addInteract(15.88,-60.6,0.82,'LOOK AT PHOTOGRAPH',()=>true,()=>{
       AudioSys.pickup();
       showToast('A wedding photo. The glass is cracked.\nSomeone kept it beside their bunk until the end.',4.5);
-    });
+    },frame);
   }
   // ---- MEDICAL: noise serum (real BP_Syringe_Noise) + resignation letter ----
   const noiseMat=new THREE.MeshStandardMaterial({color:0x5a5a10,emissive:0x6a6a1a,emissiveIntensity:0.8});
@@ -2053,7 +2162,7 @@ function buildGameplayObjects(){
     G.noiseBuff=true;nzSyr.visible=false;
     AudioSys.inject();flashRed(0.3,800);
     showToast('SUPPRESSOR SERUM: -35% noise.\nYour footsteps sound... muffled.',3.6);
-  });
+  },nzSyr);
   makeNote(-71.9,-86.0,0.965,-0.4,NOTE_MED,'READ LETTER');
   // ---- searchable supply crates (loud, but they hold the rest of the story) ----
   function searchable(x,z,text,label){
@@ -2076,7 +2185,7 @@ function buildGameplayObjects(){
     AudioSys.inject();flashRed(0.3,800);
     L.amb.intensity+=0.12;L.hemi.intensity+=0.06;
     showToast('VISION SERUM: eyes adjust to the dark, it shows on your map.\n-10% speed.',4);
-  });
+  },visSyr);
   // ---- DORM RADIO: a loud decoy you can lure it with ----
   const radio=box(0.34,0.16,0.14,M.darkMetal,8.9,1.03,-65.35,0.2);
   const ant=cyl(0.006,0.006,0.32,M.metal,8.76,1.24,-65.4,6);ant.rotation.z=0.5;ant.castShadow=false;
@@ -2383,6 +2492,8 @@ function updateTriggers(dt){
     setTimeout(()=>{
       document.exitPointerLock&&document.exitPointerLock();
       $('hud').style.display='none';
+      $('endDeaths').textContent=G.deaths===0?'It never caught you.'
+        :('It dragged you back '+G.deaths+(G.deaths===1?' time.':' times.'));
       $('endScreen').style.display='flex';
     },1500);
   }
@@ -2408,7 +2519,7 @@ document.addEventListener('mousemove',e=>{
   if(lookSettle>0){lookSettle--;return;}
   let mx=e.movementX||0, my=e.movementY||0;
   if(mx*mx+my*my>40000)return;                 // >200px in one event = teleport spike
-  const s=0.0022;
+  const s=0.0022*(Settings.sensitivity||1);
   // NOTE: min/max inlined on purpose — this handler must never depend on an
   // import, or a failure would silently kill vertical look while yaw still works.
   const cl=(v,a,b)=>v<a?a:(v>b?b:v);
@@ -2457,6 +2568,7 @@ function tick(){
       G.noise=Math.max(0,G.noise-26*dt);
   }
   updateFlashlight(dt);
+  updateDust(dt,camera.position.x,camera.position.y,camera.position.z,Player.flashOn);
   AudioSys.update(dt,{
     monsterDist:dist2(Player.x,Player.z,Monster.x,Monster.z),
     monsterActive:Monster.state!=='dormant',
@@ -2499,14 +2611,46 @@ if(('ontouchstart'in window)&&Math.min(window.innerWidth,window.innerHeight)<720
   $('mobileWarn').style.display='flex';
 }
 
+/* ================= OPTIONS MENU ================= */
+const DIFF_HINT={easy:'It moves slower and hears less.',normal:'Balanced — as designed.',
+  nightmare:'Faster, and it hears almost everything.'};
+function applySettings(){ AudioSys.setVolume(Settings.volume); applyBrightness(); }
+function refreshOptLabels(){
+  $('optVolumeV').textContent=$('optVolume').value+'%';
+  $('optBrightV').textContent=($('optBright').value/100).toFixed(2)+'x';
+  $('optSensV').textContent=($('optSens').value/100).toFixed(2)+'x';
+}
+function openOptions(){
+  $('optVolume').value=Math.round(Settings.volume*100);
+  $('optBright').value=Math.round(Settings.brightness*100);
+  $('optSens').value=Math.round(Settings.sensitivity*100);
+  refreshOptLabels();
+  for(const b of $('optDiff').children)b.classList.toggle('on',b.dataset.d===Settings.difficulty);
+  $('optDiffHint').textContent=DIFF_HINT[Settings.difficulty]||'';
+  $('pauseScreen').style.display='none';$('optionsScreen').style.display='flex';
+}
+$('btnOptions').addEventListener('click',openOptions);
+$('btnOptBack').addEventListener('click',()=>{$('optionsScreen').style.display='none';$('pauseScreen').style.display='flex';});
+$('optVolume').addEventListener('input',()=>{Settings.volume=$('optVolume').value/100;AudioSys.setVolume(Settings.volume);refreshOptLabels();saveSettings();});
+$('optBright').addEventListener('input',()=>{Settings.brightness=$('optBright').value/100;applyBrightness();refreshOptLabels();saveSettings();});
+$('optSens').addEventListener('input',()=>{Settings.sensitivity=$('optSens').value/100;refreshOptLabels();saveSettings();});
+for(const b of $('optDiff').children)b.addEventListener('click',()=>{
+  Settings.difficulty=b.dataset.d;applyDifficulty();
+  for(const x of $('optDiff').children)x.classList.toggle('on',x===b);
+  $('optDiffHint').textContent=DIFF_HINT[Settings.difficulty]||'';
+  saveSettings();
+});
+
 buildLevel();
 buildLights();
+buildDust();
 buildGameplayObjects();
 buildSilhouette();
 Monster.build();
 camera.position.set(24.9,1.62,34);
 camera.rotation.set(0,0,0);
 $('fade').style.opacity=0;   // title screen covers the scene
+applySettings();
 tick();
 
 /* ---- debug hooks (harmless in production) ---- */
@@ -2526,7 +2670,7 @@ window.dbg={
 };
 
 /* console/testing access (same objects, not copies) */
-window.__game={G,keys,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateVitals,updateFlashlight,updateCaught,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};
+window.__game={G,keys,Settings,Player,Monster,AudioSys,doors,colliders,hideSpots,L,power,camera,renderer,scene,updateDoors,updateFlicker,updatePrompt,updateHUD,updateGadgets,updateSilhouette,updateTriggers,updateVitals,updateFlashlight,updateCaught,updateDust,applyBrightness,collideCircle,findPath,dist2,setPower,doorUnlock,enterLocker,exitLocker,eventNoise};
 </script>
 </body>
 </html>

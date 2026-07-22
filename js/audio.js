@@ -2,14 +2,14 @@ import{clamp,lerp,rand}from'./utils.js';
 
 /* ================= AUDIO (procedural, WebAudio) ================= */
 const AudioSys=(()=>{
-  let ctx=null,master=null,inited=false;
+  let ctx=null,master=null,inited=false,volTarget=0.85;
   let noiseBuf=null,creakT=5,growlT=4,heartT=0,kickT=0,chaseG=null,humL=null;
   function init(){
     if(inited)return; inited=true;
     ctx=new (window.AudioContext||window.webkitAudioContext)();
     const comp=ctx.createDynamicsCompressor();
     comp.threshold.value=-20;comp.knee.value=18;comp.ratio.value=9;
-    master=ctx.createGain();master.gain.value=0.85;
+    master=ctx.createGain();master.gain.value=volTarget;
     master.connect(comp);comp.connect(ctx.destination);
     noiseBuf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
     const d=noiseBuf.getChannelData(0);
@@ -62,10 +62,21 @@ const AudioSys=(()=>{
     gn.gain.linearRampToValueAtTime(0,now()+d);
     s.start();s.stop(now()+d+0.05);
   }
-  function footstep(loud,speedK){
+  function setVolume(v){ volTarget=v; if(master)master.gain.value=v; }
+  function footstep(loud,speedK,surface){
     if(!inited)return;
-    nHit(0.05+loud*0.1,0.09,'lowpass',420+speedK*260,140,1);
-    tone('sine',88,42,0.05+loud*0.09,0.1);
+    const p=0.85+Math.random()*0.3;   // per-step pitch variation, kills the monotony
+    if(surface==='wet'){              // through a blood pool — a wet squelch
+      nHit(0.06+loud*0.09,0.15,'lowpass',(300+speedK*150)*p,90,1);
+      tone('sine',66,32,0.05+loud*0.07,0.13);
+      nHit(0.05+loud*0.06,0.1,'bandpass',720,420,4);
+    }else if(surface==='metal'){      // grating — a dull metallic ring
+      nHit(0.05+loud*0.1,0.1,'bandpass',(1400+speedK*300)*p,700,5);
+      tone('square',150*p,70,0.04+loud*0.06,0.09);
+    }else{                            // tile / concrete
+      nHit(0.05+loud*0.1,0.09,'lowpass',(420+speedK*260)*p,140,1);
+      tone('sine',88*p,42,0.05+loud*0.09,0.1);
+    }
   }
   function monsterStep(vol){
     if(!inited)return;
@@ -231,7 +242,7 @@ const AudioSys=(()=>{
       if(kickT<=0){kickT=0.43;tone('sine',88,40,0.3,0.14);}
     }
   }
-  return {init,footstep,monsterStep,growl,sting,scream,clank,relay,doorSlide,lockerClunk,
+  return {init,setVolume,footstep,monsterStep,growl,sting,scream,clank,relay,doorSlide,lockerClunk,
           pickup,beepErr,beepOk,slideNoise,land,inject,powerOn,startChase,stopChase,update,
           radioStart,radioStop,radioGain,alarmStart,alarmStop,gurgle,drawer,canDrop,
           get ready(){return inited;}};

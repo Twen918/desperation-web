@@ -12,7 +12,9 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   /* ---- HUD ---- */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;}
   #crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;
-    background:rgba(200,210,212,.55);border-radius:50%;}
+    background:rgba(200,210,212,.55);border-radius:50%;transition:all .12s;}
+  #crosshair.hot{width:10px;height:10px;margin:-5px 0 0 -5px;background:rgba(230,200,120,.12);
+    border:1.5px solid rgba(232,202,120,.9);box-shadow:0 0 8px rgba(232,202,120,.5);}
   #objective{position:absolute;top:22px;left:26px;max-width:420px;font-size:13px;letter-spacing:.08em;
     color:#aab8ba;text-shadow:0 1px 3px #000;line-height:1.5;}
   #objective b{color:#e0e8e8;font-weight:normal;}
@@ -80,6 +82,22 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   #endScreen h1{font-size:40px;}
   #endScreen .quote{max-width:560px;font-size:13.5px;line-height:2;color:#b9c4c6;font-style:italic;margin:26px 0 8px;}
   #endScreen .sig{color:#8b989b;font-size:12px;letter-spacing:.2em;margin-bottom:36px;}
+  /* ---- options menu ---- */
+  #optionsScreen{display:none;}
+  .optRow{display:flex;align-items:center;gap:16px;width:452px;max-width:88vw;margin:9px 0;
+    font-size:12px;letter-spacing:.14em;}
+  .optLbl{width:132px;text-align:right;color:#93a3a6;}
+  .optVal{width:54px;text-align:left;color:#cdd6d6;}
+  .optRow input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+    background:rgba(140,155,158,.35);outline:none;cursor:pointer;}
+  .optRow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:#c96f73;box-shadow:0 0 6px rgba(200,80,84,.6);cursor:pointer;}
+  .optRow input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:#c96f73;cursor:pointer;}
+  .optSeg{flex:1;display:flex;gap:6px;}
+  .optSeg button{flex:1;font:inherit;font-size:10px;letter-spacing:.12em;color:#93a3a6;padding:7px 0;cursor:pointer;
+    background:rgba(12,18,22,.6);border:1px solid rgba(140,155,158,.35);border-radius:2px;transition:all .15s;}
+  .optSeg button:hover{border-color:#a4464b;}
+  .optSeg button.on{background:rgba(120,20,24,.35);border-color:#c96f73;color:#e0e8e8;}
   #mobileWarn{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
     background:#04060a;font-size:15px;letter-spacing:.12em;color:#c8d2d4;text-align:center;padding:0 30px;}
   ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#3a4a4e;}
