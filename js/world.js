@@ -184,6 +184,17 @@ let exposureBase=1.12;
 function setExposureBase(v){exposureBase=v;renderer.toneMappingExposure=v*Settings.brightness;}
 function applyBrightness(){renderer.toneMappingExposure=exposureBase*Settings.brightness;}
 
+/* ---- shadow quality: the flashlight's shadow map is the main GPU cost ---- */
+function applyShadows(){
+  renderer.shadowMap.enabled=!!Settings.shadows;
+  if(L.flash)L.flash.castShadow=!!Settings.shadows;
+  // Toggling shadowMap.enabled after materials compile needs a shader rebuild.
+  scene.traverse(o=>{
+    const m=o.material; if(!m)return;
+    if(Array.isArray(m))m.forEach(x=>x.needsUpdate=true); else m.needsUpdate=true;
+  });
+}
+
 /* ---- floor surface lookup (blood pools squelch) ---- */
 const wetZones=[{x:6.6,z:7.2,r:1.35},{x:11,z:0.5,r:1.65}];
 function surfaceAt(x,z){for(const w of wetZones){const dx=x-w.x,dz=z-w.z;if(dx*dx+dz*dz<w.r*w.r)return 'wet';}return 'tile';}
@@ -727,4 +738,4 @@ function nearestNode(x,z){
 }
 
 export{M,uvScale,box,cyl,solid,wall,floorPatch,addCollider,makeDoor,doorUnlock,updateDoors,makeLocker,bed,table,cabinet,crate,shelfRow,tank,lamp,pointL,machineIsland,buildLevel,worldRefs,L,buildLights,power,setPower,updateFlicker,collideCircle,segHitsAABB,hasLOS,doorOpenFor,findPath,nearestNode,
-  applyBrightness,surfaceAt,buildDust,updateDust};
+  applyBrightness,applyShadows,surfaceAt,buildDust,updateDust};

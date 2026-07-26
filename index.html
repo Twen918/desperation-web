@@ -57,6 +57,8 @@
   <div class="optRow"><span class="optLbl">SENSITIVITY</span><input type="range" id="optSens" min="40" max="200" step="1"><span class="optVal" id="optSensV"></span></div>
   <div class="optRow"><span class="optLbl">DIFFICULTY</span><span class="optSeg" id="optDiff"><button data-d="easy">EASY</button><button data-d="normal">NORMAL</button><button data-d="nightmare">NIGHTMARE</button></span></div>
   <div class="hintline dim" id="optDiffHint" style="margin-top:6px">&nbsp;</div>
+  <div class="optRow" style="margin-top:14px"><span class="optLbl">SHADOWS</span><span class="optSeg" id="optShadow"><button data-s="1">ON</button><button data-s="0">OFF</button></span></div>
+  <div class="hintline dim" style="margin-top:6px">Turn shadows off if the game runs slowly.</div>
   <div class="start" id="btnOptBack" style="margin-top:30px">BACK</div>
 </div>
 
@@ -73,7 +75,38 @@
 
 <div id="mobileWarn">DESPERATION needs a keyboard and a mouse.<br/><br/>Please play on a desktop browser.</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<div id="bootError">
+  <div>
+    <div class="beTitle">THE FACILITY WON'T POWER UP</div>
+    <div class="beMsg">The 3D engine failed to start, so the game could not load.</div>
+    <div class="beHint">Try refreshing the page. If it keeps failing, your browser may have<br/>WebGL disabled or blocked.</div>
+    <div class="beCode" id="bootErrCode"></div>
+  </div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
 <script type="module" src="./js/main.js"></script>
+<script>
+/* Boot guard: without this, any failure to start leaves a silent black screen
+   that is indistinguishable from a broken game. Show the player something. */
+(function(){
+  function fail(detail){
+    var be=document.getElementById('bootError');
+    if(!be||be.style.display==='flex')return;
+    var f=document.getElementById('fade'); if(f)f.style.display='none';
+    var t=document.getElementById('titleScreen'); if(t)t.style.display='none';
+    document.getElementById('bootErrCode').textContent=detail||'';
+    be.style.display='flex';
+  }
+  if(typeof THREE==='undefined'){ fail('three.js did not load'); return; }
+  window.addEventListener('error',function(e){
+    if(e.message&&/WebGL|context/i.test(e.message))fail(e.message);
+  });
+  // The module is deferred, so give it a moment; if it never booted, say so.
+  setTimeout(function(){
+    if(typeof window.__game==='undefined')fail('the game script did not finish loading');
+  },6000);
+})();
+</script>
 </body>
 </html>

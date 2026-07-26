@@ -44,7 +44,9 @@ MODULES = [
     "js/main.js",
 ]
 
-ZIP_CONTENTS = ["index.html", "css/style.css"] + MODULES
+VENDOR_THREE = "vendor/three.min.js"
+
+ZIP_CONTENTS = ["index.html", "css/style.css", VENDOR_THREE] + MODULES
 
 IMPORT_RE = re.compile(r"^\s*import\s*\{[^}]*\}\s*from\s*['\"][^'\"]+['\"]\s*;?\s*$", re.M)
 EXPORT_RE = re.compile(r"^\s*export\s*\{[^}]*\}\s*;?\s*$", re.M)
@@ -106,6 +108,17 @@ def build_singlefile():
     )
     if n != 1:
         sys.exit("error: could not find the module <script> in index.html")
+
+    # Inline three.js as well, so the single file really is self-contained and
+    # plays offline from a double-click (no CDN, no sibling files).
+    three = read(VENDOR_THREE)
+    html, n = re.subn(
+        r'<script src="\./vendor/three\.min\.js"></script>',
+        lambda m: "<script>\n" + three + "\n</script>",
+        html,
+    )
+    if n != 1:
+        sys.exit("error: could not find the three.js <script> in index.html")
 
     banner = (
         "<!--\n"

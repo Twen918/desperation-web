@@ -105,11 +105,14 @@ js/
   gameplay.js                 Interactables, serums, radio, alarm, events
   gameflow.js                 Capture, jumpscare, respawn, triggers, ending
   main.js                     Input, main loop, boot
+vendor/three.min.js           Bundled three.js r128 (MIT) — see Third-party
 tools/build.py                Generates the single-file build and the itch zip
 ```
 
 **`js/` is the source of truth.** The single-file build is generated from it —
-never edit `Desperation-singlefile.html` by hand.
+never edit `Desperation-singlefile.html` by hand. It is also rebuilt
+automatically on every push (see `.github/workflows/build.yml`), so the copy in
+the repo always matches `js/`.
 
 ## Building
 
@@ -122,8 +125,13 @@ for itch.io (which expects a zip containing `index.html` at its root, uploaded
 with *"This file will be played in the browser"* checked).
 
 The single-file build works by concatenating the modules in dependency order
-with their `import`/`export` statements stripped. There is no bundler and no
-`node_modules`; the only dependency is three.js r128 from a CDN.
+with their `import`/`export` statements stripped, then inlining the CSS and
+three.js. There is no bundler and no `node_modules`.
+
+Nothing is loaded from the network at runtime — three.js ships in `vendor/`, so
+both builds work offline, inside the itch.io desktop app, and on networks that
+block CDNs. The single-file build is genuinely self-contained: one file, no
+server, double-click to play.
 
 ## Notable implementation details
 
@@ -169,3 +177,9 @@ The source code in this repository is released under the MIT License — see
 The game's story, characters, written notes and level design belong to the
 original team and are **not** covered by that license. Please don't reuse the
 narrative content or ship the game as your own.
+
+### Third-party
+
+`vendor/three.min.js` is [three.js](https://threejs.org/) r128, © 2010–2021
+three.js authors, distributed under the MIT License. It is bundled verbatim
+(license header intact) so the game runs without a CDN.

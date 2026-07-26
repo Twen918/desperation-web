@@ -1,0 +1,62 @@
+name: Build single-file
+
+# Keeps Desperation-singlefile.html in sync with js/ automatically, so the copy
+# in the repo (and the one GitHub Pages serves) is never stale.
+#
+# No infinite loop: this job only ever commits Desperation-singlefile.html, and
+# that path is not in the trigger filter below, so its own push cannot retrigger it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'js/**'
+      - 'css/**'
+      - 'vendor/**'
+      - 'index.html'
+      - 'tools/build.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-singlefile
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build
+        run: python tools/build.py
+
+      - name: Sanity-check the bundle
+        run: |
+          f=Desperation-singlefile.html
+          test -s "$f" || { echo "::error::$f is empty"; exit 1; }
+          # The bundle must be self-contained: three.js and the game code inlined,
+          # and no leftover module/stylesheet references to sibling files.
+          grep -q 'THREE' "$f"                  || { echo "::error::three.js missing from bundle"; exit 1; }
+          grep -q 'buildLevel'  "$f"            || { echo "::error::game code missing from bundle"; exit 1; }
+          ! grep -q 'src="./js/main.js"' "$f"   || { echo "::error::module script not inlined"; exit 1; }
+          ! grep -q 'href="./css/'      "$f"    || { echo "::error::stylesheet not inlined"; exit 1; }
+          echo "bundle OK — $(wc -c < "$f") bytes"
+
+      - name: Commit if it changed
+        run: |
+          if git diff --quiet -- Desperation-singlefile.html; then
+            echo "Already up to date — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Desperation-singlefile.html
+          git commit -m "chore: rebuild single-file bundle [skip ci]"
+          git push
