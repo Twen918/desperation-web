@@ -737,5 +737,5 @@ function nearestNode(x,z){
   return best;
 }
 
-export{M,uvScale,box,cyl,solid,wall,floorPatch,addCollider,makeDoor,doorUnlock,updateDoors,makeLocker,bed,table,cabinet,crate,shelfRow,tank,lamp,pointL,machineIsland,buildLevel,worldRefs,L,buildLights,power,setPower,updateFlicker,collideCircle,segHitsAABB,hasLOS,doorOpenFor,findPath,nearestNode,
+export{M,makeTex,uvScale,box,cyl,solid,wall,floorPatch,addCollider,makeDoor,doorUnlock,updateDoors,makeLocker,bed,table,cabinet,crate,shelfRow,tank,lamp,pointL,machineIsland,buildLevel,worldRefs,L,buildLights,power,setPower,updateFlicker,collideCircle,segHitsAABB,hasLOS,doorOpenFor,findPath,nearestNode,
   applyBrightness,applyShadows,surfaceAt,buildDust,updateDust};
