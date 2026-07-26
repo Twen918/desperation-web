@@ -74,8 +74,11 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   .screen .sub{font-size:12px;letter-spacing:.3em;color:#8b393c;margin-bottom:44px;}
   .screen .hintline{font-size:13px;letter-spacing:.16em;color:#aab8ba;margin:5px 0;}
   .screen .dim{color:#66757a;font-size:11px;}
+  /* min-width keeps stacked buttons the same size regardless of label length;
+     text-indent cancels the trailing letter-spacing so the label stays optically centred */
   .screen .start{margin-top:46px;font-size:15px;letter-spacing:.3em;color:#e0e8e8;
-    padding:12px 34px;border:1px solid rgba(160,175,178,.45);cursor:pointer;background:rgba(12,18,22,.6);}
+    padding:12px 34px;border:1px solid rgba(160,175,178,.45);cursor:pointer;background:rgba(12,18,22,.6);
+    box-sizing:border-box;min-width:230px;text-align:center;text-indent:.3em;}
   .screen .start:hover{background:rgba(120,20,24,.25);border-color:#a4464b;}
   .screen a{color:#c96f73;text-decoration:none;border-bottom:1px dotted #c96f73;}
   #pauseScreen,#endScreen{display:none;background:rgba(3,5,8,.88);}
