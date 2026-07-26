@@ -2,7 +2,7 @@ import{$,dist2,clamp}from'./utils.js';
 import{G,keys,doors,colliders,hideSpots,Settings,saveSettings,applyDifficulty}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{canvas,renderer,scene,camera}from'./gfx.js';
-import{buildLevel,buildLights,updateDoors,updateFlicker,setPower,doorUnlock,L,collideCircle,findPath,power,applyBrightness,buildDust,updateDust}from'./world.js';
+import{buildLevel,buildLights,updateDoors,updateFlicker,setPower,doorUnlock,L,collideCircle,findPath,power,applyBrightness,applyShadows,buildDust,updateDust}from'./world.js';
 import{updateObjective,updateHUD,updateGrain,drawMap,fadeTo}from'./ui.js';
 import{Player,updateFlashlight}from'./entities/player.js';
 import{Monster}from'./entities/monster.js';
@@ -121,7 +121,7 @@ if(('ontouchstart'in window)&&Math.min(window.innerWidth,window.innerHeight)<720
 /* ================= OPTIONS MENU ================= */
 const DIFF_HINT={easy:'It moves slower and hears less.',normal:'Balanced — as designed.',
   nightmare:'Faster, and it hears almost everything.'};
-function applySettings(){ AudioSys.setVolume(Settings.volume); applyBrightness(); }
+function applySettings(){ AudioSys.setVolume(Settings.volume); applyBrightness(); applyShadows(); }
 function refreshOptLabels(){
   $('optVolumeV').textContent=$('optVolume').value+'%';
   $('optBrightV').textContent=($('optBright').value/100).toFixed(2)+'x';
@@ -134,6 +134,7 @@ function openOptions(){
   refreshOptLabels();
   for(const b of $('optDiff').children)b.classList.toggle('on',b.dataset.d===Settings.difficulty);
   $('optDiffHint').textContent=DIFF_HINT[Settings.difficulty]||'';
+  for(const b of $('optShadow').children)b.classList.toggle('on',(b.dataset.s==='1')===!!Settings.shadows);
   $('pauseScreen').style.display='none';$('optionsScreen').style.display='flex';
 }
 $('btnOptions').addEventListener('click',openOptions);
@@ -145,6 +146,11 @@ for(const b of $('optDiff').children)b.addEventListener('click',()=>{
   Settings.difficulty=b.dataset.d;applyDifficulty();
   for(const x of $('optDiff').children)x.classList.toggle('on',x===b);
   $('optDiffHint').textContent=DIFF_HINT[Settings.difficulty]||'';
+  saveSettings();
+});
+for(const b of $('optShadow').children)b.addEventListener('click',()=>{
+  Settings.shadows=b.dataset.s==='1';applyShadows();
+  for(const x of $('optShadow').children)x.classList.toggle('on',x===b);
   saveSettings();
 });
 

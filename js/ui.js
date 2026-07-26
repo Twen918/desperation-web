@@ -1,5 +1,5 @@
 import{$}from'./utils.js';
-import{ROOMS,HEAL_TIME}from'./config.js';
+import{ROOMS,HEAL_TIME,SERUMS}from'./config.js';
 import{G,doors,refs}from'./state.js';
 import{AudioSys}from'./audio.js';
 
@@ -45,10 +45,11 @@ function updateHUD(dt){
   if(G.hasKeycard)inv+='<span style="color:#d06a6a">RED KEYCARD</span><br/>';
   if(G.hasExitKey)inv+='<span style="color:#6a8ad0">BLUE KEYCARD</span><br/>';
   if(G.hasFuse)inv+='FUSE<br/>';
-  if(G.syringe)inv+='<span class="buff">SPEED +40% / NOISE +50%</span><br/>';
-  if(G.regen&&!G.regenUsed)inv+='<span style="color:#4ab87a">REGEN — one free escape</span><br/>';
-  if(G.noiseBuff)inv+='<span style="color:#b8b84a">SUPPRESSOR — NOISE -35%</span><br/>';
-  if(G.vision)inv+='<span style="color:#5a9ad8">VISION — map ping / -10% speed</span><br/>';
+  // colour-coded to match each serum's vial and glow in the world
+  if(G.syringe)inv+='<span style="color:'+SERUMS.speed.hud+'">SPEED +40% / NOISE +50%</span><br/>';
+  if(G.regen&&!G.regenUsed)inv+='<span style="color:'+SERUMS.regen.hud+'">REGEN — one free escape</span><br/>';
+  if(G.noiseBuff)inv+='<span style="color:'+SERUMS.suppressor.hud+'">SUPPRESSOR — NOISE -35%</span><br/>';
+  if(G.vision)inv+='<span style="color:'+SERUMS.vision.hud+'">VISION — map ping / -10% speed</span><br/>';
   if(refs.player.crouched)inv+='<span style="color:#7f8f92">CROUCHED</span><br/>';
   $('inv').innerHTML=inv;
   if(refs.monster){

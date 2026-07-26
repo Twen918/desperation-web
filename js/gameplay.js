@@ -1,9 +1,9 @@
 import{$,clamp,rand,dist2,lerp}from'./utils.js';
-import{NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED}from'./config.js';
+import{SERUMS,NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED}from'./config.js';
 import{G,keys,doors,hideSpots,interactables,powerScreens,addNoise}from'./state.js';
 import{AudioSys}from'./audio.js';
 import{scene}from'./gfx.js';
-import{M,box,cyl,addCollider,doorUnlock,setPower,L,worldRefs,power}from'./world.js';
+import{M,makeTex,box,cyl,addCollider,doorUnlock,setPower,L,worldRefs,power}from'./world.js';
 import{showToast,updateObjective,openNote,closeNote,drawMap,flashRed}from'./ui.js';
 import{Player}from'./entities/player.js';
 import{Monster,makeSilhouetteRig}from'./entities/monster.js';
@@ -105,12 +105,60 @@ function exitLocker(){
 
 /* ================= PICKUPS & PUZZLE OBJECTS ================= */
 const switchLevers=[];
-function makeSyringe(x,z,y,fluidMat){
+/* soft round sprite shared by every serum halo */
+let glowTex=null;
+function getGlowTex(){
+  if(!glowTex)glowTex=makeTex(64,64,(x)=>{
+    const gr=x.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0,'rgba(255,255,255,1)');
+    gr.addColorStop(0.35,'rgba(255,255,255,0.45)');
+    gr.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=gr;x.fillRect(0,0,64,64);
+  },1,1);
+  return glowTex;
+}
+const serumPickups=[];   // animated in updateGadgets
+/* A colour-coded vial: glowing fluid, a matching halo and a small pool of its
+   own light, so each serum is identifiable at a glance in the dark. */
+function makeSyringe(x,z,y,serum){
   const g=new THREE.Group();g.position.set(x,y,z);scene.add(g);
-  const body=cyl(0.04,0.04,0.3,M.syringe,0,0,0,8);body.rotation.z=Math.PI/2;g.add(body);
-  const fl=cyl(0.03,0.03,0.2,fluidMat,0,0,0,8);fl.rotation.z=Math.PI/2;g.add(fl);
+  // Glass barrel over glowing fluid: an opaque barrel would hide the colour,
+  // which is the whole point. Emissive stays ~1 so it reads as the serum's
+  // colour instead of clipping to white under ACES tone mapping.
+  const fluidMat=new THREE.MeshStandardMaterial({
+    color:serum.vial,emissive:serum.vial,emissiveIntensity:1.5,roughness:0.35});
+  const glassMat=new THREE.MeshStandardMaterial({
+    color:serum.vial,transparent:true,opacity:0.3,roughness:0.15,metalness:0.1,depthWrite:false});
+  const fl=cyl(0.038,0.038,0.26,fluidMat,0,0,0,10);fl.rotation.z=Math.PI/2;g.add(fl);
+  const barrel=cyl(0.05,0.05,0.3,glassMat,0,0,0,10);barrel.rotation.z=Math.PI/2;g.add(barrel);
+  const plunger=cyl(0.045,0.045,0.05,M.syringe,-0.17,0,0,8);plunger.rotation.z=Math.PI/2;g.add(plunger);
   const ndl=cyl(0.006,0.006,0.14,M.syringe,0.2,0,0,6);ndl.rotation.z=Math.PI/2;g.add(ndl);
+  // halo — additive billboard, reads from across a room
+  // Kept deliberately faint: additive blending saturates toward white, and a
+  // strong halo washes the vial out — which would defeat the colour coding.
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:getGlowTex(),color:serum.glow,transparent:true,opacity:0.26,
+    depthWrite:false,blending:THREE.AdditiveBlending}));
+  halo.scale.set(0.5,0.5,1);g.add(halo);
+  // its own little pool of coloured light
+  const lamp=new THREE.PointLight(serum.glow,0.55,2.4);g.add(lamp);
+  g.userData.anim={halo,lamp,baseY:y,phase:Math.random()*6.283};
+  serumPickups.push(g);
   return g;
+}
+/* gentle bob + pulse so the eye catches them; stops once collected */
+function updateSerums(dt){
+  const t=performance.now()*0.001;
+  for(const g of serumPickups){
+    if(!g.visible)continue;
+    const a=g.userData.anim;
+    g.position.y=a.baseY+Math.sin(t*1.5+a.phase)*0.025;
+    g.rotation.y+=dt*0.55;
+    const p=0.5+0.5*Math.sin(t*2.2+a.phase);
+    a.halo.material.opacity=0.18+p*0.16;
+    a.halo.scale.setScalar(0.46+p*0.08);
+    a.lamp.intensity=0.5+p*0.34;   // the coloured light spill is the clearest cue
+  }
 }
 function makeNote(x,z,y,rz,text,label){
   const note=new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.4),M.paper);
@@ -146,15 +194,14 @@ function buildGameplayObjects(){
   },fuseMesh);
   makeNote(11.8,6.95,1.0,0.4,NOTE_SPECIMEN,'READ MEMO');
   box(0.7,0.06,0.3,M.darkMetal,13.6,1.15,-0.2,0); // wall shelf
-  const spdSyr=makeSyringe(13.6,-0.2,1.25,M.syrFluid);
+  const spdSyr=makeSyringe(13.6,-0.2,1.25,SERUMS.speed);
   addInteract(13.6,-0.2,1.25,'INJECT SPEED SERUM',()=>!G.syringe,()=>{
     G.syringe=true;spdSyr.visible=false;
     AudioSys.inject();flashRed(0.45,900);
     showToast('SPEED SERUM: +40% speed / +50% noise.\nYour heart is pounding.',3.6);
   },spdSyr);
   // ---- REGEN serum on the lab north bench (real BP_Syringe_Regen2) ----
-  const regenMat=new THREE.MeshStandardMaterial({color:0x0d5a2a,emissive:0x1a7a3a,emissiveIntensity:0.9});
-  const regSyr=makeSyringe(-5.2,-9.0,1.02,regenMat);
+  const regSyr=makeSyringe(-5.2,-9.0,1.02,SERUMS.regen);
   addInteract(-5.2,-9.0,1.02,'INJECT REGEN SERUM',()=>!G.regen,()=>{
     G.regen=true;regSyr.visible=false;
     AudioSys.inject();flashRed(0.35,900);
@@ -220,8 +267,7 @@ function buildGameplayObjects(){
     },frame);
   }
   // ---- MEDICAL: noise serum (real BP_Syringe_Noise) + resignation letter ----
-  const noiseMat=new THREE.MeshStandardMaterial({color:0x5a5a10,emissive:0x6a6a1a,emissiveIntensity:0.8});
-  const nzSyr=makeSyringe(-71.9,-85.15,1.0,noiseMat);
+  const nzSyr=makeSyringe(-71.9,-85.15,1.0,SERUMS.suppressor);
   addInteract(-71.9,-85.15,1.0,'INJECT SUPPRESSOR SERUM',()=>!G.noiseBuff,()=>{
     G.noiseBuff=true;nzSyr.visible=false;
     AudioSys.inject();flashRed(0.3,800);
@@ -242,8 +288,7 @@ function buildGameplayObjects(){
   searchable(-25.3,-83.5,NOTE_COLLINS);
   searchable(-57,-104,NOTE_NEWS);
   // ---- NORTH HALL: vision serum on a crate (real BP_Syringe_Vision) ----
-  const visMat=new THREE.MeshStandardMaterial({color:0x0c3a6a,emissive:0x1a5a9a,emissiveIntensity:0.9});
-  const visSyr=makeSyringe(-20.3,-105.4,0.9,visMat);
+  const visSyr=makeSyringe(-20.3,-105.4,0.9,SERUMS.vision);
   addInteract(-20.3,-105.4,0.9,'INJECT VISION SERUM',()=>!G.vision,()=>{
     G.vision=true;visSyr.visible=false;
     AudioSys.inject();flashRed(0.3,800);
@@ -311,6 +356,7 @@ function buildGameplayObjects(){
 }
 /* ---- powered gadgets tick (radio / alarm / tank drain) ---- */
 function updateGadgets(dt){
+  updateSerums(dt);
   if(G.radioOn>0){
     G.radioOn-=dt;
     const d=dist2(Player.x,Player.z,8.9,-65.35);

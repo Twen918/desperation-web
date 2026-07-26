@@ -2,6 +2,17 @@
 const H=3.2, T=0.32;
 const HEAL_TIME=25;   // seconds un-hit before a wound closes back to full
 
+/* Serum colour code — one palette drives the 3D vial, its glow and the HUD line,
+   so a colour always means the same serum wherever the player sees it. */
+/* `vial` is deliberately deeper than `glow`: the fluid is also lit by the
+   flashlight, and a light base colour blows out to white under ACES. */
+const SERUMS={
+  speed:     {vial:0xb51208, glow:0xff4a34, hud:'#ff6a54', label:'SPEED'},
+  regen:     {vial:0x0a8f3e, glow:0x2aff88, hud:'#4ae08a', label:'REGEN'},
+  suppressor:{vial:0xb99608, glow:0xffdc2a, hud:'#e8cf46', label:'SUPPRESSOR'},
+  vision:    {vial:0x0c56c4, glow:0x38a8ff, hud:'#5ab0ff', label:'VISION'},
+};
+
 const ROOMS={ // for the map overlay
   START:{x1:20.45,z1:26.79,x2:29.45,z2:39.19,name:'CELL'},
   CORRA:{x1:23.85,z1:24.29,x2:26.45,z2:26.79,name:''},
@@ -95,4 +106,4 @@ const NOTE_MED=
 "This place is no longer a laboratory. It is a crime scene.\n\n"+
 "                                        — Dr. Mara Ellison";
 
-export{H,T,HEAL_TIME,ROOMS,NODES,EDGES,ADJ,NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED};
+export{H,T,HEAL_TIME,SERUMS,ROOMS,NODES,EDGES,ADJ,NOTE_SPECIMEN,NOTE_START,NOTE_DORM,NOTE_COLLINS,NOTE_NEWS,NOTE_MED};
