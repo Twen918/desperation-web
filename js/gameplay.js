@@ -122,6 +122,11 @@ const serumPickups=[];   // animated in updateGadgets
    own light, so each serum is identifiable at a glance in the dark. */
 function makeSyringe(x,z,y,serum){
   const g=new THREE.Group();g.position.set(x,y,z);scene.add(g);
+  // The meshes live in their own child group so collecting the serum can hide
+  // them WITHOUT hiding the PointLight below. Culling a light changes
+  // NUM_POINT_LIGHTS, which makes three.js recompile every material in the
+  // scene -- that cost a ~1.7s freeze the moment the player injected anything.
+  const visual=new THREE.Group();g.add(visual);
   // Glass barrel over glowing fluid: an opaque barrel would hide the colour,
   // which is the whole point. Emissive stays ~1 so it reads as the serum's
   // colour instead of clipping to white under ACES tone mapping.
@@ -129,29 +134,37 @@ function makeSyringe(x,z,y,serum){
     color:serum.vial,emissive:serum.vial,emissiveIntensity:1.5,roughness:0.35});
   const glassMat=new THREE.MeshStandardMaterial({
     color:serum.vial,transparent:true,opacity:0.3,roughness:0.15,metalness:0.1,depthWrite:false});
-  const fl=cyl(0.038,0.038,0.26,fluidMat,0,0,0,10);fl.rotation.z=Math.PI/2;g.add(fl);
-  const barrel=cyl(0.05,0.05,0.3,glassMat,0,0,0,10);barrel.rotation.z=Math.PI/2;g.add(barrel);
-  const plunger=cyl(0.045,0.045,0.05,M.syringe,-0.17,0,0,8);plunger.rotation.z=Math.PI/2;g.add(plunger);
-  const ndl=cyl(0.006,0.006,0.14,M.syringe,0.2,0,0,6);ndl.rotation.z=Math.PI/2;g.add(ndl);
+  const fl=cyl(0.038,0.038,0.26,fluidMat,0,0,0,10);fl.rotation.z=Math.PI/2;visual.add(fl);
+  const barrel=cyl(0.05,0.05,0.3,glassMat,0,0,0,10);barrel.rotation.z=Math.PI/2;visual.add(barrel);
+  const plunger=cyl(0.045,0.045,0.05,M.syringe,-0.17,0,0,8);plunger.rotation.z=Math.PI/2;visual.add(plunger);
+  const ndl=cyl(0.006,0.006,0.14,M.syringe,0.2,0,0,6);ndl.rotation.z=Math.PI/2;visual.add(ndl);
   // halo — additive billboard, reads from across a room
   // Kept deliberately faint: additive blending saturates toward white, and a
   // strong halo washes the vial out — which would defeat the colour coding.
   const halo=new THREE.Sprite(new THREE.SpriteMaterial({
     map:getGlowTex(),color:serum.glow,transparent:true,opacity:0.26,
     depthWrite:false,blending:THREE.AdditiveBlending}));
-  halo.scale.set(0.5,0.5,1);g.add(halo);
-  // its own little pool of coloured light
+  halo.scale.set(0.5,0.5,1);visual.add(halo);
+  // its own little pool of coloured light — stays in the scene for good, see above
   const lamp=new THREE.PointLight(serum.glow,0.55,2.4);g.add(lamp);
-  g.userData.anim={halo,lamp,baseY:y,phase:Math.random()*6.283};
+  g.userData.anim={visual,halo,lamp,baseY:y,phase:Math.random()*6.283,taken:false};
   serumPickups.push(g);
   return g;
+}
+/* Collect a serum: hide the vial and fade its light out, but keep the light
+   object in the scene graph so the shader light count never changes. */
+function takeSerum(g){
+  const a=g.userData.anim;
+  a.taken=true;
+  a.visual.visible=false;
+  a.lamp.intensity=0;
 }
 /* gentle bob + pulse so the eye catches them; stops once collected */
 function updateSerums(dt){
   const t=performance.now()*0.001;
   for(const g of serumPickups){
-    if(!g.visible)continue;
     const a=g.userData.anim;
+    if(a.taken)continue;
     g.position.y=a.baseY+Math.sin(t*1.5+a.phase)*0.025;
     g.rotation.y+=dt*0.55;
     const p=0.5+0.5*Math.sin(t*2.2+a.phase);
@@ -196,14 +209,14 @@ function buildGameplayObjects(){
   box(0.7,0.06,0.3,M.darkMetal,13.6,1.15,-0.2,0); // wall shelf
   const spdSyr=makeSyringe(13.6,-0.2,1.25,SERUMS.speed);
   addInteract(13.6,-0.2,1.25,'INJECT SPEED SERUM',()=>!G.syringe,()=>{
-    G.syringe=true;spdSyr.visible=false;
+    G.syringe=true;takeSerum(spdSyr);
     AudioSys.inject();flashRed(0.45,900);
     showToast('SPEED SERUM: +40% speed / +50% noise.\nYour heart is pounding.',3.6);
   },spdSyr);
   // ---- REGEN serum on the lab north bench (real BP_Syringe_Regen2) ----
   const regSyr=makeSyringe(-5.2,-9.0,1.02,SERUMS.regen);
   addInteract(-5.2,-9.0,1.02,'INJECT REGEN SERUM',()=>!G.regen,()=>{
-    G.regen=true;regSyr.visible=false;
+    G.regen=true;takeSerum(regSyr);
     AudioSys.inject();flashRed(0.35,900);
     showToast('REGEN SERUM: you will survive one attack.\nYour skin crawls as it knits.',3.8);
   },regSyr);
@@ -269,7 +282,7 @@ function buildGameplayObjects(){
   // ---- MEDICAL: noise serum (real BP_Syringe_Noise) + resignation letter ----
   const nzSyr=makeSyringe(-71.9,-85.15,1.0,SERUMS.suppressor);
   addInteract(-71.9,-85.15,1.0,'INJECT SUPPRESSOR SERUM',()=>!G.noiseBuff,()=>{
-    G.noiseBuff=true;nzSyr.visible=false;
+    G.noiseBuff=true;takeSerum(nzSyr);
     AudioSys.inject();flashRed(0.3,800);
     showToast('SUPPRESSOR SERUM: -35% noise.\nYour footsteps sound... muffled.',3.6);
   },nzSyr);
@@ -290,7 +303,7 @@ function buildGameplayObjects(){
   // ---- NORTH HALL: vision serum on a crate (real BP_Syringe_Vision) ----
   const visSyr=makeSyringe(-20.3,-105.4,0.9,SERUMS.vision);
   addInteract(-20.3,-105.4,0.9,'INJECT VISION SERUM',()=>!G.vision,()=>{
-    G.vision=true;visSyr.visible=false;
+    G.vision=true;takeSerum(visSyr);
     AudioSys.inject();flashRed(0.3,800);
     L.amb.intensity+=0.12;L.hemi.intensity+=0.06;
     showToast('VISION SERUM: eyes adjust to the dark, it shows on your map.\n-10% speed.',4);
