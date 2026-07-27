@@ -9,12 +9,14 @@ built in Unreal Engine 5 for CSE420 (3D Video Game Development). The facility
 layout is reconstructed from the original `LabLevel.umap`, so the rooms, doors,
 lockers and pickups sit where they sit in the real game.
 
-**▶ [Play in your browser](https://Twen918.github.io/desperation-web/)**
-&nbsp;·&nbsp;
-[Download the original UE5 game on itch.io](https://chieftain22.itch.io/desperation)
+### ▶ [Play it on itch.io](https://twen7.itch.io/desperationweb)
 
-> The play link goes live once GitHub Pages is enabled — see
-> [Deploying](#deploying) below.
+Also playable at [twen918.github.io/desperation-web](https://Twen918.github.io/desperation-web/),
+or grab [`Desperation-singlefile.html`](Desperation-singlefile.html) and
+double-click it — one file, no server, works offline.
+
+Looking for the original Unreal Engine game? It's
+[here](https://chieftain22.itch.io/desperation).
 
 ![The hallway](media/screenshot-hallway.jpg)
 
@@ -121,8 +123,7 @@ python tools/build.py
 ```
 
 This regenerates `Desperation-singlefile.html` and packs `desperation-web.zip`
-for itch.io (which expects a zip containing `index.html` at its root, uploaded
-with *"This file will be played in the browser"* checked).
+for itch.io — see [Deploying](#deploying) for the upload settings.
 
 The single-file build works by concatenating the modules in dependency order
 with their `import`/`export` statements stripped, then inlining the CSS and
@@ -147,15 +148,32 @@ the map can never disagree with each other.
 
 ## Deploying
 
-To publish the playable link:
+The game is published in two places, both fed from this repository.
 
-1. Push this repository to GitHub as a **public** repo named `desperation-web`.
-2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
-3. Wait a minute for the first build. The play link at the top of this README
-   then works. (If you name the repo something other than `desperation-web`,
-   update both links to match.)
+### itch.io — [twen7.itch.io/desperationweb](https://twen7.itch.io/desperationweb)
 
-The single-file build is also served, at
+Run `python tools/build.py`, then upload `desperation-web.zip` to the project's
+**Uploads** section with *"This file will be played in the browser"* checked.
+The zip has `index.html` at its root, which is what itch.io expects.
+
+Page settings that matter:
+
+| Setting | Value |
+|---|---|
+| Kind of project | **HTML** |
+| Viewport | 960 × 600 |
+| Fullscreen button | enabled |
+| Automatically start on page load | **off** — browsers block audio until the player interacts |
+| Mobile friendly | off — the game needs a keyboard and mouse |
+
+`Desperation-singlefile.html` can also be attached as a plain download (leave
+*"played in the browser"* unchecked) for anyone who wants an offline copy.
+
+### GitHub Pages — [twen918.github.io/desperation-web](https://Twen918.github.io/desperation-web/)
+
+**Settings → Pages → Source: Deploy from a branch**, branch `main`, folder
+`/ (root)`. Every push to `main` republishes automatically; the single-file
+build is served alongside it at
 `https://Twen918.github.io/desperation-web/Desperation-singlefile.html`.
 
 ## Credits
